@@ -1,12 +1,12 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Button } from "@/components/ui/button"
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts"
 import { Clock, DollarSign, Briefcase, CalendarX } from "lucide-react"
-import type { TimeEntry, PeriodSummary, ProjectSummary } from "@/lib/types"
+import type { TimeEntry, PeriodSummary, ProjectSummary, ProfileResponse } from "@/lib/types"
 import { format, startOfWeek, startOfMonth, parseISO } from "date-fns"
 
 interface SummaryDashboardProps {
@@ -17,6 +17,20 @@ export function SummaryDashboard({ entries }: SummaryDashboardProps) {
   const [selectedPeriod, setSelectedPeriod] = useState<"week" | "month">("week")
   const [selectedClient, setSelectedClient] = useState<string>("all")
   const [selectedProject, setSelectedProject] = useState<string>("all")
+  const [profile, setProfile] = useState<ProfileResponse | null>(null)
+
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const res = await fetch("/api/profile")
+        if (res.ok) {
+          const data: ProfileResponse = await res.json()
+          setProfile(data)
+        }
+      } catch {}
+    }
+    load()
+  }, [])
 
   // Get unique clients and projects
   const clients = Array.from(new Set(entries.filter((e) => e.client).map((e) => e.client!)))
@@ -256,7 +270,7 @@ export function SummaryDashboard({ entries }: SummaryDashboardProps) {
                     cx="50%"
                     cy="50%"
                     labelLine={false}
-                    label={({ name, hours }) => `${hours.toFixed(1)}h`}
+                    label={(entry: any) => `${Number(entry?.hours || 0).toFixed(1)}h`}
                     outerRadius={80}
                     fill="#8884d8"
                     dataKey="hours"
@@ -298,6 +312,49 @@ export function SummaryDashboard({ entries }: SummaryDashboardProps) {
                 </div>
               ))}
             </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Increment Impact (after last increment) */}
+      {profile?.salaryHistory && profile.salaryHistory.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Increment Impact</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {(() => {
+              const latest = profile.salaryHistory
+                .slice()
+                .sort((a, b) => a.effectiveFrom.localeCompare(b.effectiveFrom))
+                .at(-1)!
+              const before = filteredEntries.filter((e) => e.date < latest.effectiveFrom)
+              const after = filteredEntries.filter((e) => e.date >= latest.effectiveFrom)
+              const beforeHours = before.reduce((s, e) => s + e.totalHours, 0)
+              const beforeEarn = before.reduce((s, e) => s + e.totalEarnings, 0)
+              const afterHours = after.reduce((s, e) => s + e.totalHours, 0)
+              const afterEarn = after.reduce((s, e) => s + e.totalEarnings, 0)
+              const pct = beforeEarn > 0 ? (((afterEarn / Math.max(1, afterHours)) - (beforeEarn / Math.max(1, beforeHours))) / (beforeEarn / Math.max(1, beforeHours))) * 100 : 0
+              return (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <div className="text-sm text-muted-foreground">Last Increment</div>
+                    <div className="font-medium">{latest.effectiveFrom}</div>
+                  </div>
+                  <div>
+                    <div className="text-sm text-muted-foreground">Before</div>
+                    <div className="font-medium">{beforeHours.toFixed(1)}h • ${beforeEarn.toFixed(2)}</div>
+                  </div>
+                  <div>
+                    <div className="text-sm text-muted-foreground">After</div>
+                    <div className="font-medium">{afterHours.toFixed(1)}h • ${afterEarn.toFixed(2)}</div>
+                    {beforeHours > 0 && afterHours > 0 && (
+                      <div className="text-xs text-muted-foreground">Avg/hr change: {pct.toFixed(1)}%</div>
+                    )}
+                  </div>
+                </div>
+              )
+            })()}
           </CardContent>
         </Card>
       )}

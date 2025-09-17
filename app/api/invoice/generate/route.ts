@@ -3,6 +3,7 @@ import { connectToDatabase } from "@/lib/mongodb"
 import type { TimeEntry } from "@/lib/types"
 import PDFDocument from "pdfkit"
 import { verifyToken } from "@/lib/auth"
+import { getEffectiveHourlyRateForDate, computeEarningsWithOvertime } from "@/lib/salary"
 
 interface InvoiceRequest {
   startDate: string
@@ -32,8 +33,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Start date and end date are required" }, { status: 400 })
     }
 
-    const { db } = await connectToDatabase()
-    const collection = db.collection<TimeEntry>("timeEntries")
+  const { db } = await connectToDatabase()
+  const collection = db.collection<TimeEntry>("timeEntries")
 
     // Build query
     const query: any = {
@@ -49,7 +50,7 @@ export async function POST(request: NextRequest) {
       query.project = new RegExp(projectName, "i")
     }
 
-    const entries = await collection.find(query).sort({ date: 1 }).toArray()
+  const entries = await collection.find(query).sort({ date: 1 }).toArray()
 
     if (entries.length === 0) {
       return NextResponse.json({ error: "No time entries found for the specified criteria" }, { status: 404 })
@@ -57,7 +58,12 @@ export async function POST(request: NextRequest) {
 
     // Calculate totals
     const totalHours = entries.reduce((sum, entry) => sum + entry.totalHours, 0)
-    const totalEarnings = entries.reduce((sum, entry) => sum + entry.totalEarnings, 0)
+    // Recompute earnings in case overtime rules changed using same db instance
+    let totalEarnings = 0
+    for (const e of entries) {
+      const eff = await getEffectiveHourlyRateForDate(db, userId, e.date)
+      totalEarnings += computeEarningsWithOvertime(e.totalHours, eff.hourlyRate, eff.overtime)
+    }
 
     // Generate PDF
     const doc = new PDFDocument({ margin: 50 })

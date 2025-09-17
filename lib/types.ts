@@ -55,6 +55,19 @@ export interface User {
   email: string
   password: string
   name: string
+  contact?: {
+    phone?: string
+    addressLine1?: string
+    addressLine2?: string
+    city?: string
+    state?: string
+    postalCode?: string
+    country?: string
+  }
+  // Salary & working configuration lives on the user document
+  salaryHistory?: SalaryRecord[]
+  workingConfig?: WorkingConfig // Current defaults for working hours etc. (used when creating new salary records)
+  overtime?: OvertimeConfig
   createdAt?: Date
   updatedAt?: Date
 }
@@ -74,4 +87,58 @@ export interface RegisterCredentials {
   email: string
   password: string
   name: string
+}
+
+// ---- Salary & Profile types ----
+
+export type SalaryType = "monthly" | "annual"
+
+export interface WorkingConfig {
+  hoursPerDay: number // e.g., 8
+  daysPerMonth: number // e.g., 22 (configurable)
+}
+
+export interface OvertimeConfig {
+  enabled: boolean
+  thresholdHoursPerDay: number // e.g., 8
+  multiplier: number // e.g., 1.5
+}
+
+export interface SalaryRecord {
+  salaryType: SalaryType
+  amount: number // salary amount in currency units
+  effectiveFrom: string // YYYY-MM-DD (inclusive)
+  working: WorkingConfig // working hours at the time of this salary
+  note?: string
+  createdAt?: Date
+}
+
+export interface ProfileResponse {
+  _id: string
+  email: string
+  name: string
+  contact?: User["contact"]
+  workingConfig?: WorkingConfig
+  overtime?: OvertimeConfig
+  salaryHistory: SalaryRecord[]
+}
+
+export interface UpdateProfileRequest {
+  name?: string
+  contact?: User["contact"]
+  workingConfig?: WorkingConfig
+  overtime?: OvertimeConfig
+}
+
+export interface AddSalaryIncrementRequest {
+  salaryType: SalaryType
+  amount: number
+  effectiveFrom: string // YYYY-MM-DD
+  working?: Partial<WorkingConfig>
+  note?: string
+}
+
+export interface HourlyRateResponse {
+  date: string
+  hourlyRate: number
 }

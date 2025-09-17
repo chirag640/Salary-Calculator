@@ -92,11 +92,7 @@ export function TimeEntryList({ entries, onEdit, onDelete }: TimeEntryListProps)
                           <span className="font-medium">
                             {entry.timeIn} - {entry.timeOut}
                           </span>
-                          {entry.breakMinutes > 0 && (
-                            <Badge variant="outline" className="text-xs">
-                              {entry.breakMinutes}min break
-                            </Badge>
-                          )}
+                          {/* Break minutes no longer tracked; hourly rate shown for reference */}
                           <Badge variant="secondary">${entry.hourlyRate}/hr</Badge>
                         </div>
 

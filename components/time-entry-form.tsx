@@ -1,6 +1,6 @@
 "use client"
 
-import type React from "react"
+import React from "react"
 
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
@@ -15,7 +15,7 @@ import type { TimeEntry, LeaveType } from "@/lib/types"
 
 interface TimeEntryFormProps {
   selectedDate: string
-  onSubmit: (entry: Omit<TimeEntry, "_id" | "createdAt" | "updatedAt">) => void
+  onSubmit: (entry: Omit<TimeEntry, "_id" | "createdAt" | "updatedAt" | "userId">) => void
   initialData?: TimeEntry
   isEditing?: boolean
 }
@@ -23,21 +23,41 @@ interface TimeEntryFormProps {
 export function TimeEntryForm({ selectedDate, onSubmit, initialData, isEditing = false }: TimeEntryFormProps) {
   const [timeIn, setTimeIn] = useState(initialData?.timeIn || "")
   const [timeOut, setTimeOut] = useState(initialData?.timeOut || "")
-  const [breakMinutes, setBreakMinutes] = useState(initialData?.breakMinutes || 0)
-  const [hourlyRate, setHourlyRate] = useState(initialData?.hourlyRate || 0)
+  const [manualHours, setManualHours] = useState<number>(initialData?.totalHours || 0)
+  const [breakMinutes] = useState(0)
+  const [hourlyRate, setHourlyRate] = useState<number>(initialData?.hourlyRate || 0)
   const [workDescription, setWorkDescription] = useState(initialData?.workDescription || "")
-  const [client, setClient] = useState(initialData?.client || "")
-  const [project, setProject] = useState(initialData?.project || "")
+  const [client] = useState("")
+  const [project] = useState("")
   const [isLeave, setIsLeave] = useState(initialData?.leave?.isLeave || false)
   const [leaveType, setLeaveType] = useState<LeaveType>(initialData?.leave?.leaveType || "Sick")
   const [leaveReason, setLeaveReason] = useState(initialData?.leave?.leaveReason || "")
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   // Live calculation
-  const calculation =
-    timeIn && timeOut && hourlyRate > 0 && !isLeave
-      ? calculateTimeWorked(timeIn, timeOut, breakMinutes, hourlyRate)
-      : { totalHours: 0, totalEarnings: 0 }
+  const calculation = (() => {
+    if (isLeave || hourlyRate <= 0) return { totalHours: 0, totalEarnings: 0 }
+    if (timeIn && timeOut) return calculateTimeWorked(timeIn, timeOut, breakMinutes, hourlyRate)
+    if (manualHours > 0) {
+      const h = Math.round(manualHours * 100) / 100
+      return { totalHours: h, totalEarnings: Math.round(h * hourlyRate * 100) / 100 }
+    }
+    return { totalHours: 0, totalEarnings: 0 }
+  })()
+
+  // Fetch hourly rate for selected date on mount or when date changes
+  React.useEffect(() => {
+    const fetchRate = async () => {
+      try {
+        const res = await fetch(`/api/profile/hourly-rate?date=${selectedDate}`)
+        if (res.ok) {
+          const data = await res.json()
+          setHourlyRate(data.hourlyRate || 0)
+        }
+      } catch {}
+    }
+    if (!isLeave) fetchRate()
+  }, [selectedDate, isLeave])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -48,7 +68,7 @@ export function TimeEntryForm({ selectedDate, onSubmit, initialData, isEditing =
         return
       }
     } else {
-      if (!timeIn || !timeOut || hourlyRate <= 0) {
+      if ((!(timeIn && timeOut) && manualHours <= 0) || hourlyRate <= 0) {
         alert("Please fill in all required fields")
         return
       }
@@ -59,15 +79,15 @@ export function TimeEntryForm({ selectedDate, onSubmit, initialData, isEditing =
     try {
       const entryData = {
         date: selectedDate,
-        timeIn: isLeave ? "" : timeIn,
-        timeOut: isLeave ? "" : timeOut,
-        breakMinutes: isLeave ? 0 : breakMinutes,
+  timeIn: isLeave ? "" : timeIn,
+  timeOut: isLeave ? "" : timeOut,
+  totalHours: isLeave ? 0 : calculation.totalHours,
+        breakMinutes: isLeave ? 0 : 0,
         hourlyRate: isLeave ? 0 : hourlyRate,
-        totalHours: isLeave ? 0 : calculation.totalHours,
         totalEarnings: isLeave ? 0 : calculation.totalEarnings,
         workDescription: isLeave ? leaveReason : workDescription,
-        client,
-        project,
+        client: "",
+        project: "",
         leave: isLeave
           ? {
               isLeave: true,
@@ -82,12 +102,10 @@ export function TimeEntryForm({ selectedDate, onSubmit, initialData, isEditing =
       // Reset form if not editing
       if (!isEditing) {
         setTimeIn("")
-        setTimeOut("")
-        setBreakMinutes(0)
-        setHourlyRate(0)
+  setTimeOut("")
+  setManualHours(0)
+        setHourlyRate((prev) => prev)
         setWorkDescription("")
-        setClient("")
-        setProject("")
         setIsLeave(false)
         setLeaveType("Sick")
         setLeaveReason("")
@@ -112,21 +130,7 @@ export function TimeEntryForm({ selectedDate, onSubmit, initialData, isEditing =
             <Label htmlFor="isLeave">This is a leave day</Label>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <Label htmlFor="client">Client</Label>
-              <Input id="client" value={client} onChange={(e) => setClient(e.target.value)} placeholder="Client name" />
-            </div>
-            <div>
-              <Label htmlFor="project">Project</Label>
-              <Input
-                id="project"
-                value={project}
-                onChange={(e) => setProject(e.target.value)}
-                placeholder="Project name"
-              />
-            </div>
-          </div>
+          {/* Client and Project fields removed per requirements */}
 
           {isLeave ? (
             <>
@@ -176,31 +180,10 @@ export function TimeEntryForm({ selectedDate, onSubmit, initialData, isEditing =
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="breakMinutes">Break (minutes)</Label>
-                  <Input
-                    id="breakMinutes"
-                    type="number"
-                    min="0"
-                    value={breakMinutes}
-                    onChange={(e) => setBreakMinutes(Number(e.target.value))}
-                    placeholder="0"
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="hourlyRate">Hourly Rate ($)</Label>
-                  <Input
-                    id="hourlyRate"
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={hourlyRate}
-                    onChange={(e) => setHourlyRate(Number(e.target.value))}
-                    placeholder="0.00"
-                    required
-                  />
-                </div>
+              {/* Break and manual hourly rate removed; hourly rate auto-fetched from profile */}
+              <div>
+                <Label>Hourly Rate (auto)</Label>
+                <div className="p-2 rounded bg-muted">${hourlyRate.toFixed(2)} / hr</div>
               </div>
 
               <div>

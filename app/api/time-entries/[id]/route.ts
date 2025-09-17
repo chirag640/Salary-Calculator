@@ -4,6 +4,7 @@ import { ObjectId } from "mongodb"
 import { connectToDatabase } from "@/lib/mongodb"
 import type { TimeEntry } from "@/lib/types"
 import { calculateTimeWorked } from "@/lib/time-utils"
+import { getEffectiveHourlyRateForDate, computeEarningsWithOvertime } from "@/lib/salary"
 import { verifyToken } from "@/lib/auth"
 
 export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
@@ -21,7 +22,6 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
       timeIn,
       timeOut,
       breakMinutes = 0,
-      hourlyRate,
       workDescription = "",
       client = "",
       project = "",
@@ -29,17 +29,25 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
     } = body
 
     // Validate required fields
-    if (!date || !hourlyRate) {
+    if (!date) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 })
     }
 
     let totalHours = 0
     let totalEarnings = 0
 
-    if (!leave?.isLeave && timeIn && timeOut) {
-      const calculation = calculateTimeWorked(timeIn, timeOut, breakMinutes, hourlyRate)
-      totalHours = calculation.totalHours
-      totalEarnings = calculation.totalEarnings
+    let hourlyRate = 0
+    const { db } = await connectToDatabase()
+    const eff = await getEffectiveHourlyRateForDate(db, userId, date)
+    hourlyRate = eff.hourlyRate || 0
+    if (!leave?.isLeave) {
+      if (timeIn && timeOut) {
+        const calculation = calculateTimeWorked(timeIn, timeOut, breakMinutes, hourlyRate)
+        totalHours = calculation.totalHours
+      } else if (typeof body.totalHours === "number" && body.totalHours > 0) {
+        totalHours = Math.round(body.totalHours * 100) / 100
+      }
+      totalEarnings = computeEarningsWithOvertime(totalHours, hourlyRate, eff.overtime)
     }
 
     const updateData = {
@@ -57,7 +65,6 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
       updatedAt: new Date(),
     }
 
-    const { db } = await connectToDatabase()
     const collection = db.collection<TimeEntry>("timeEntries")
 
     const result = await collection.updateOne({ _id: new ObjectId(params.id) as any, userId }, { $set: updateData })

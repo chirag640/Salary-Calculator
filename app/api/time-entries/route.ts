@@ -4,6 +4,7 @@ import { connectToDatabase } from "@/lib/mongodb"
 import type { TimeEntry } from "@/lib/types"
 import { calculateTimeWorked } from "@/lib/time-utils"
 import { verifyToken } from "@/lib/auth"
+import { getEffectiveHourlyRateForDate, computeEarningsWithOvertime } from "@/lib/salary"
 
 export async function GET(request: NextRequest) {
   try {
@@ -36,7 +37,9 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const userId = request.headers.get("x-user-id")
+    const cookieToken = request.cookies.get("auth-token")?.value
+    const userFromToken = cookieToken ? verifyToken(cookieToken) : null
+    const userId = userFromToken?._id || request.headers.get("x-user-id")
     if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
@@ -47,7 +50,6 @@ export async function POST(request: NextRequest) {
       timeIn,
       timeOut,
       breakMinutes = 0,
-      hourlyRate,
       workDescription = "",
       client = "",
       project = "",
@@ -55,17 +57,27 @@ export async function POST(request: NextRequest) {
     } = body
 
     // Validate required fields
-    if (!date || !hourlyRate) {
+    if (!date) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 })
     }
 
-    let totalHours = 0
-    let totalEarnings = 0
+  let totalHours = 0
+  let totalEarnings = 0
+    let hourlyRate = 0
 
-    if (!leave?.isLeave && timeIn && timeOut) {
-      const calculation = calculateTimeWorked(timeIn, timeOut, breakMinutes, hourlyRate)
-      totalHours = calculation.totalHours
-      totalEarnings = calculation.totalEarnings
+    // Determine hourly rate based on user's salary history effective for the date
+    const { db } = await connectToDatabase()
+    const eff = await getEffectiveHourlyRateForDate(db, userId, date)
+    hourlyRate = eff.hourlyRate || 0
+
+    if (!leave?.isLeave) {
+      if (timeIn && timeOut) {
+        const calculation = calculateTimeWorked(timeIn, timeOut, breakMinutes, hourlyRate)
+        totalHours = calculation.totalHours
+      } else if (typeof body.totalHours === "number" && body.totalHours > 0) {
+        totalHours = Math.round(body.totalHours * 100) / 100
+      }
+      totalEarnings = computeEarningsWithOvertime(totalHours, hourlyRate, eff.overtime)
     }
 
     const timeEntry: TimeEntry = {
@@ -85,7 +97,6 @@ export async function POST(request: NextRequest) {
       updatedAt: new Date(),
     }
 
-    const { db } = await connectToDatabase()
     const collection = db.collection<TimeEntry>("timeEntries")
 
     const result = await collection.insertOne(timeEntry)

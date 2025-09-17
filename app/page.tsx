@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import type { TimeEntry } from "@/lib/types"
-import { Clock, DollarSign, CalendarX, BarChart3, FileText, Download, Brain, LogOut } from "lucide-react"
+import { Clock, DollarSign, CalendarX, BarChart3, FileText, Download, Brain, LogOut, User } from "lucide-react"
 import { format } from "date-fns"
 import { useRouter } from "next/navigation"
 
@@ -47,7 +47,7 @@ export default function TimeTracker() {
   }, [])
 
   // Handle form submission
-  const handleSubmit = async (entryData: Omit<TimeEntry, "_id" | "createdAt" | "updatedAt">) => {
+  const handleSubmit = async (entryData: Omit<TimeEntry, "_id" | "createdAt" | "updatedAt" | "userId">) => {
     try {
       if (editingEntry) {
         // Update existing entry
@@ -136,12 +136,18 @@ export default function TimeTracker() {
       <div className="mb-8 flex justify-between items-start">
         <div>
           <h1 className="text-3xl font-bold mb-2">Time Tracker</h1>
-          <p className="text-muted-foreground">Track your work hours, manage leave, and analyze productivity</p>
+          <p className="text-muted-foreground">Track your work hours, manage leave, and analyze productivity. Configure your salary and working hours in Profile.</p>
         </div>
-        <Button variant="outline" onClick={handleLogout}>
-          <LogOut className="h-4 w-4 mr-2" />
-          Logout
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => router.push("/profile")}>
+            <User className="h-4 w-4 mr-2" />
+            Profile
+          </Button>
+          <Button variant="outline" onClick={handleLogout}>
+            <LogOut className="h-4 w-4 mr-2" />
+            Logout
+          </Button>
+        </div>
       </div>
 
       {/* Date Selection */}
