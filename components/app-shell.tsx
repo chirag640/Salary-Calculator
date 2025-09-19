@@ -20,6 +20,8 @@ const NavLink = ({ href, icon: Icon, children }: { href: string; icon?: any; chi
 export function AppShell({ children }: { children: React.ReactNode }) {
   const router = useRouter()
   const [open, setOpen] = useState(false)
+  const pathname = usePathname()
+  const isAuthRoute = pathname?.startsWith('/login') || pathname?.startsWith('/register')
 
   const logout = async () => {
     try {
@@ -46,42 +48,44 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="min-h-dvh bg-aurora">
-      <header className="sticky top-4 z-50 pointer-events-auto">
-        <div className="container mx-auto max-w-6xl px-4">
-          <div className="mx-auto -mt-2 mb-6 glass-card p-3 flex items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <Gauge className="h-6 w-6 text-primary" />
-              <Link href="/" className="font-semibold tracking-tight text-lg">Salary Counter</Link>
-            </div>
-            <nav className="hidden md:flex items-center gap-2">
-              <NavItems />
-            </nav>
-            <div className="flex items-center gap-2">
-              <ThemeToggle />
-              <Button variant="glass" size="sm" onClick={logout} className="rounded-md px-3 py-1.5">
-                <LogOut className="h-4 w-4 mr-2" /> Logout
-              </Button>
-              <Sheet open={open} onOpenChange={setOpen}>
-                <SheetTrigger asChild>
-                  <Button variant="glass" size="icon" className="md:hidden" aria-label="Open menu">
-                    <Menu className="h-5 w-5" />
-                  </Button>
-                </SheetTrigger>
-                <SheetContent side="right" className="flex flex-col gap-2">
-                  <div className="mt-8 flex flex-col gap-1">
-                    <NavItems />
-                  </div>
-                  <div className="mt-auto">
-                    <Button variant="glass" className="w-full" onClick={() => { setOpen(false); logout() }}>
-                      <LogOut className="h-4 w-4 mr-2" /> Logout
+      {!isAuthRoute && (
+        <header className="sticky top-4 z-50 pointer-events-auto">
+          <div className="container mx-auto max-w-6xl px-4">
+            <div className="mx-auto -mt-2 mb-6 glass-card p-3 flex items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <Gauge className="h-6 w-6 text-primary" />
+                <Link href="/" className="font-semibold tracking-tight text-lg">Salary Counter</Link>
+              </div>
+              <nav className="hidden md:flex items-center gap-2">
+                <NavItems />
+              </nav>
+              <div className="flex items-center gap-2">
+                <ThemeToggle />
+                <Button variant="glass" size="sm" onClick={logout} className="rounded-md px-3 py-1.5">
+                  <LogOut className="h-4 w-4 mr-2" /> Logout
+                </Button>
+                <Sheet open={open} onOpenChange={setOpen}>
+                  <SheetTrigger asChild>
+                    <Button variant="glass" size="icon" className="md:hidden" aria-label="Open menu">
+                      <Menu className="h-5 w-5" />
                     </Button>
-                  </div>
-                </SheetContent>
-              </Sheet>
+                  </SheetTrigger>
+                  <SheetContent side="right" className="flex flex-col gap-2">
+                    <div className="mt-8 flex flex-col gap-1">
+                      <NavItems />
+                    </div>
+                    <div className="mt-auto">
+                      <Button variant="glass" className="w-full" onClick={() => { setOpen(false); logout() }}>
+                        <LogOut className="h-4 w-4 mr-2" /> Logout
+                      </Button>
+                    </div>
+                  </SheetContent>
+                </Sheet>
+              </div>
             </div>
           </div>
-        </div>
-      </header>
+        </header>
+      )}
       <main className="container mx-auto max-w-6xl p-4 md:p-6">
         {children}
       </main>
