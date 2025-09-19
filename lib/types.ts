@@ -126,11 +126,13 @@ export interface ProfileResponse {
     amount: number
     salaryType: SalaryType
   }
+  defaultHourlyRate?: number
 }
 
 export interface UpdateProfileRequest {
   name?: string
   username?: string
+  defaultHourlyRate?: number
   contact?: User["contact"]
   workingConfig?: WorkingConfig
   overtime?: OvertimeConfig

@@ -1,5 +1,4 @@
 "use client"
-
 import { useEffect, useState } from "react"
 import { motion, fadeInUp, staggerContainer } from "@/components/motion"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -25,6 +24,7 @@ export default function ProfilePage() {
   const [otMultiplier, setOtMultiplier] = useState<number>(1.5)
 
   // Increment form
+  const [estimatedHourly, setEstimatedHourly] = useState<number | null>(null)
   const [salaryType, setSalaryType] = useState<SalaryType>("monthly")
   const [salaryAmount, setSalaryAmount] = useState<number>(0)
   const [effectiveFrom, setEffectiveFrom] = useState<string>("")
@@ -76,6 +76,7 @@ export default function ProfilePage() {
           workingConfig: { hoursPerDay, daysPerMonth },
           overtime: { enabled: otEnabled, thresholdHoursPerDay: otThreshold, multiplier: otMultiplier },
           currentSalary: { amount: currentSalary, salaryType: currentSalaryType },
+          defaultHourlyRate: estimatedHourly ?? undefined,
         }),
       })
     } finally {
@@ -100,6 +101,34 @@ export default function ProfilePage() {
     }
   }
 
+  const computeHourly = () => {
+    if (!currentSalary || hoursPerDay <= 0 || daysPerMonth <= 0) {
+      setEstimatedHourly(null)
+      return
+    }
+
+    // Convert annual/monthly to monthly amount
+    let monthly = currentSalary
+    if (currentSalaryType === "annual") monthly = currentSalary / 12
+
+    // hourly = monthly / (daysPerMonth * hoursPerDay)
+    const hourly = monthly / (daysPerMonth * hoursPerDay)
+    setEstimatedHourly(Number(hourly.toFixed(2)))
+  }
+
+  const applyEstimatedHourly = async () => {
+    if (estimatedHourly == null) return
+    setSaving(true)
+    try {
+      await fetch("/api/profile", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ defaultHourlyRate: estimatedHourly }),
+      })
+    } finally {
+      setSaving(false)
+    }
+  }
   if (loading) return <div className="p-6">Loading profile...</div>
 
   return (
@@ -211,7 +240,22 @@ export default function ProfilePage() {
                 }
               }}>Set Current Salary</Button>
             </div>
+            <div>
+              <Label>Hours/day</Label>
+              <Input type="number" min={1} value={hoursPerDay} onChange={(e) => setHoursPerDay(Number(e.target.value))} />
+            </div>
+            <div className="flex items-end">
+              <div className="w-full">
+                <Button onClick={computeHourly} className="w-full">Estimate hourly rate</Button>
+              </div>
+            </div>
           </div>
+          {estimatedHourly != null && (
+            <div className="mt-3 flex items-center gap-4">
+              <div className="text-sm">Estimated hourly rate: <span className="font-semibold">${estimatedHourly}</span></div>
+              <Button size="sm" onClick={applyEstimatedHourly} disabled={saving}>{saving ? 'Saving...' : 'Apply as default hourly rate'}</Button>
+            </div>
+          )}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div>
               <Label>Type</Label>
