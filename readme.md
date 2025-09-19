@@ -8,7 +8,7 @@
 
 <br />
 <div align="center">
-  <h1>Salary Counter — Time Tracker</h1>
+  <h1>Salary Calculator — Time Tracker</h1>
   <p align="center">A lightweight, modern time tracker & salary calculator built with Next.js and Tailwind — now with a glassmorphic UI.</p>
   <p align="center">
     <a href="#getting-started">Get Started</a>
@@ -41,7 +41,7 @@
 
 ## About the Project
 
-Salary Counter is a personal time-tracking and salary calculator web app. Log work sessions, manage leave, compute earnings by day/week/month, and generate simple invoices or exports. The project emphasizes clarity, a lightweight codebase, and a modern glassmorphic UI.
+Salary Calculator is a personal time-tracking and salary calculator web app. Log work sessions, manage leave, compute earnings by day/week/month, and generate simple invoices or exports. The project emphasizes clarity, a lightweight codebase, and a modern glassmorphic UI.
 
 This repository is a Next.js application with Tailwind CSS for styling, Radix UI primitives for accessible components, and a small set of utilities for time and salary calculations.
 
@@ -89,8 +89,8 @@ npm install -g pnpm
 1. Clone the repo
 
 ```powershell
-git clone https://github.com/chirag640/Salary-Counter.git
-cd Salary-Counter
+git clone https://github.com/chirag640/Salary-Calculator.git
+cd Salary-Calculator
 ```
 
 2. Install dependencies
@@ -197,6 +197,6 @@ This project is distributed under the Unlicense License — see `LICENSE` or inc
 
 If you'd like help maintaining or extending this project, open an issue or contact the project owner.
 
-Project link: https://github.com/chirag640/Salary-Counter
+Project link: https://github.com/chirag640/Salary-Calculator
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
