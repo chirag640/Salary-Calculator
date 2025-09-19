@@ -136,7 +136,7 @@ export default function ProfilePage() {
       <motion.h1 className="text-3xl font-bold" variants={fadeInUp}>Profile</motion.h1>
 
       <motion.div variants={fadeInUp}>
-      <Card>
+  <Card className="hover:translate-y-[-1px] transition-transform">
         <CardHeader>
           <CardTitle>Personal Details</CardTitle>
         </CardHeader>
@@ -169,7 +169,7 @@ export default function ProfilePage() {
               <Input type="number" min={1} value={daysPerMonth} onChange={(e) => setDaysPerMonth(Number(e.target.value))} />
             </div>
             <div className="flex items-end gap-2">
-              <Button onClick={saveProfile} disabled={saving}>{saving ? "Saving..." : "Save Profile"}</Button>
+              <Button onClick={saveProfile} disabled={saving} variant="glass">{saving ? "Saving..." : "Save Profile"}</Button>
             </div>
           </div>
         </CardContent>
@@ -177,7 +177,7 @@ export default function ProfilePage() {
       </motion.div>
 
       <motion.div variants={fadeInUp}>
-      <Card>
+  <Card className="hover:translate-y-[-1px] transition-transform">
         <CardHeader>
           <CardTitle>Overtime Settings</CardTitle>
         </CardHeader>
@@ -202,7 +202,7 @@ export default function ProfilePage() {
       </motion.div>
 
       <motion.div variants={fadeInUp}>
-      <Card>
+  <Card className="hover:translate-y-[-1px] transition-transform">
         <CardHeader>
           <CardTitle>Salary Increments</CardTitle>
         </CardHeader>
@@ -225,7 +225,7 @@ export default function ProfilePage() {
               </Select>
             </div>
             <div className="flex items-end">
-              <Button onClick={async () => {
+              <Button variant="glass" onClick={async () => {
                 if (currentSalary <= 0) return
                 // use today's date as effectiveFrom for quick set
                 const today = new Date().toISOString().slice(0, 10)
@@ -246,14 +246,14 @@ export default function ProfilePage() {
             </div>
             <div className="flex items-end">
               <div className="w-full">
-                <Button onClick={computeHourly} className="w-full">Estimate hourly rate</Button>
+                <Button onClick={computeHourly} className="w-full" variant="glass">Estimate hourly rate</Button>
               </div>
             </div>
           </div>
           {estimatedHourly != null && (
             <div className="mt-3 flex items-center gap-4">
               <div className="text-sm">Estimated hourly rate: <span className="font-semibold">${estimatedHourly}</span></div>
-              <Button size="sm" onClick={applyEstimatedHourly} disabled={saving}>{saving ? 'Saving...' : 'Apply as default hourly rate'}</Button>
+              <Button size="sm" onClick={applyEstimatedHourly} disabled={saving} variant="glass">{saving ? 'Saving...' : 'Apply as default hourly rate'}</Button>
             </div>
           )}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -278,7 +278,7 @@ export default function ProfilePage() {
               <Input type="date" value={effectiveFrom} onChange={(e) => setEffectiveFrom(e.target.value)} />
             </div>
             <div className="flex items-end">
-              <Button onClick={addIncrement}>Add Increment</Button>
+              <Button onClick={addIncrement} variant="glass">Add Increment</Button>
             </div>
           </div>
           <div>

@@ -119,7 +119,7 @@ export function TimeEntryForm({ selectedDate, onSubmit, initialData, isEditing =
   }
 
   return (
-    <Card>
+  <Card className="hover:translate-y-[-1px] transition-transform">
       <CardHeader>
         <CardTitle>{isEditing ? "Edit Entry" : "Log Entry"}</CardTitle>
       </CardHeader>
@@ -217,7 +217,7 @@ export function TimeEntryForm({ selectedDate, onSubmit, initialData, isEditing =
             </>
           )}
 
-          <Button type="submit" disabled={isSubmitting} className="w-full">
+          <Button type="submit" disabled={isSubmitting} className="w-full" variant="glass">
             {isSubmitting ? "Saving..." : isEditing ? "Update Entry" : "Save Entry"}
           </Button>
         </form>

@@ -17,14 +17,14 @@ export function DatePicker({ date, onDateChange }: DatePickerProps) {
     <Popover>
       <PopoverTrigger asChild>
         <Button
-          variant="outline"
+          variant="glass"
           className={cn("w-full justify-start text-left font-normal", !date && "text-muted-foreground")}
         >
           <CalendarIcon className="mr-2 h-4 w-4" />
           {date ? format(date, "PPP") : <span>Pick a date</span>}
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-auto p-0" align="start">
+      <PopoverContent className="w-auto p-0 glass-card" align="start">
         <Calendar mode="single" selected={date} onSelect={(newDate) => newDate && onDateChange(newDate)} initialFocus />
       </PopoverContent>
     </Popover>

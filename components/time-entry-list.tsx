@@ -35,7 +35,7 @@ export function TimeEntryList({ entries, onEdit, onDelete }: TimeEntryListProps)
 
   if (entries.length === 0) {
     return (
-      <Card>
+      <Card className="hover:translate-y-[-1px] transition-transform">
         <CardContent className="flex flex-col items-center justify-center py-8">
           <Calendar className="h-12 w-12 text-muted-foreground mb-4" />
           <p className="text-muted-foreground text-center">No time entries found. Start by logging your first entry!</p>
@@ -84,7 +84,7 @@ export function TimeEntryList({ entries, onEdit, onDelete }: TimeEntryListProps)
 
             <div className="space-y-3">
               {dateEntries.map((entry) => (
-                <Card key={entry._id}>
+                <Card key={entry._id} className="hover:translate-y-[-1px] transition-transform">
                   <CardContent className="p-4">
                     <div className="flex items-start justify-between">
                       <div className="flex-1">

@@ -187,7 +187,7 @@ export function SummaryDashboard({ entries }: SummaryDashboardProps) {
 
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card>
+        <Card className="hover:translate-y-[-1px] transition-transform">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Hours</CardTitle>
             <Clock className="h-4 w-4 text-muted-foreground" />
@@ -196,9 +196,9 @@ export function SummaryDashboard({ entries }: SummaryDashboardProps) {
             <div className="text-2xl font-bold">{totalHours.toFixed(2)}h</div>
             <p className="text-xs text-muted-foreground">{totalWorkDays} work days</p>
           </CardContent>
-        </Card>
+  </Card>
 
-        <Card>
+  <Card className="hover:translate-y-[-1px] transition-transform">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Earnings</CardTitle>
             <DollarSign className="h-4 w-4 text-muted-foreground" />
@@ -209,9 +209,9 @@ export function SummaryDashboard({ entries }: SummaryDashboardProps) {
               Avg: ${totalWorkDays > 0 ? (totalEarnings / totalWorkDays).toFixed(2) : "0"}/day
             </p>
           </CardContent>
-        </Card>
+  </Card>
 
-        <Card>
+  <Card className="hover:translate-y-[-1px] transition-transform">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Leave Days</CardTitle>
             <CalendarX className="h-4 w-4 text-muted-foreground" />
@@ -220,9 +220,9 @@ export function SummaryDashboard({ entries }: SummaryDashboardProps) {
             <div className="text-2xl font-bold text-orange-600">{totalLeave}</div>
             <p className="text-xs text-muted-foreground">Days off taken</p>
           </CardContent>
-        </Card>
+  </Card>
 
-        <Card>
+  <Card className="hover:translate-y-[-1px] transition-transform">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Active Projects</CardTitle>
             <Briefcase className="h-4 w-4 text-muted-foreground" />
@@ -237,7 +237,7 @@ export function SummaryDashboard({ entries }: SummaryDashboardProps) {
       {/* Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Hours/Earnings Over Time */}
-        <Card>
+  <Card className="hover:translate-y-[-1px] transition-transform">
           <CardHeader>
             <CardTitle>Hours & Earnings Over Time</CardTitle>
           </CardHeader>
@@ -257,7 +257,7 @@ export function SummaryDashboard({ entries }: SummaryDashboardProps) {
         </Card>
 
         {/* Project Distribution */}
-        <Card>
+  <Card className="hover:translate-y-[-1px] transition-transform">
           <CardHeader>
             <CardTitle>Hours by Project</CardTitle>
           </CardHeader>
@@ -293,7 +293,7 @@ export function SummaryDashboard({ entries }: SummaryDashboardProps) {
 
       {/* Project Summary Table */}
       {summary.projects.length > 0 && (
-        <Card>
+  <Card className="hover:translate-y-[-1px] transition-transform">
           <CardHeader>
             <CardTitle>Project Summary</CardTitle>
           </CardHeader>
@@ -318,7 +318,7 @@ export function SummaryDashboard({ entries }: SummaryDashboardProps) {
 
       {/* Increment Impact (after last increment) */}
       {profile?.salaryHistory && profile.salaryHistory.length > 0 && (
-        <Card>
+  <Card className="hover:translate-y-[-1px] transition-transform">
           <CardHeader>
             <CardTitle>Increment Impact</CardTitle>
           </CardHeader>

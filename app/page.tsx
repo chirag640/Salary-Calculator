@@ -160,7 +160,7 @@ export default function TimeTracker() {
           <div className="flex-1 max-w-xs">
             <DatePicker date={selectedDate} onDateChange={setSelectedDate} />
           </div>
-          <Button variant="outline" onClick={() => setSelectedDate(new Date())}>
+          <Button variant="glass" onClick={() => setSelectedDate(new Date())}>
             Today
           </Button>
         </div>
@@ -250,7 +250,7 @@ export default function TimeTracker() {
 
           {editingEntry && (
             <div className="flex justify-center">
-              <Button variant="outline" onClick={() => setEditingEntry(null)}>
+              <Button variant="glass" onClick={() => setEditingEntry(null)}>
                 Cancel Edit
               </Button>
             </div>
