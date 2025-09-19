@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { motion, fadeInUp, staggerContainer } from "@/components/motion"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -98,9 +99,10 @@ export default function ProfilePage() {
   if (loading) return <div className="p-6">Loading profile...</div>
 
   return (
-    <div className="container mx-auto p-6 max-w-4xl space-y-6">
-      <h1 className="text-3xl font-bold">Profile</h1>
+    <motion.div className="container mx-auto p-6 max-w-4xl space-y-6" variants={staggerContainer} initial="hidden" animate="show">
+      <motion.h1 className="text-3xl font-bold" variants={fadeInUp}>Profile</motion.h1>
 
+      <motion.div variants={fadeInUp}>
       <Card>
         <CardHeader>
           <CardTitle>Personal Details</CardTitle>
@@ -135,7 +137,9 @@ export default function ProfilePage() {
           </div>
         </CardContent>
       </Card>
+      </motion.div>
 
+      <motion.div variants={fadeInUp}>
       <Card>
         <CardHeader>
           <CardTitle>Overtime Settings</CardTitle>
@@ -158,7 +162,9 @@ export default function ProfilePage() {
           </div>
         </CardContent>
       </Card>
+      </motion.div>
 
+      <motion.div variants={fadeInUp}>
       <Card>
         <CardHeader>
           <CardTitle>Salary Increments</CardTitle>
@@ -251,6 +257,7 @@ export default function ProfilePage() {
           </div>
         </CardContent>
       </Card>
-    </div>
+      </motion.div>
+    </motion.div>
   )
 }

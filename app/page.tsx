@@ -12,15 +12,17 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import type { TimeEntry } from "@/lib/types"
-import { Clock, DollarSign, CalendarX, BarChart3, FileText, Download, Brain, LogOut, User } from "lucide-react"
+import { Clock, DollarSign, CalendarX, BarChart3, FileText, Download, Brain, User } from "lucide-react"
 import { format } from "date-fns"
 import { useRouter } from "next/navigation"
+import { motion, fadeInUp, staggerContainer } from "@/components/motion"
 
 export default function TimeTracker() {
   const [selectedDate, setSelectedDate] = useState(new Date())
   const [entries, setEntries] = useState<TimeEntry[]>([])
   const [editingEntry, setEditingEntry] = useState<TimeEntry | null>(null)
   const [loading, setLoading] = useState(true)
+  const [tab, setTab] = useState<string>("log")
   const router = useRouter()
 
   const selectedDateString = format(selectedDate, "yyyy-MM-dd")
@@ -44,6 +46,19 @@ export default function TimeTracker() {
   // Load entries on mount and date change
   useEffect(() => {
     fetchEntries()
+  }, [])
+
+  // Sync tab with URL hash (for anchors from AppShell)
+  useEffect(() => {
+    const validTabs = new Set(["log", "history", "summary", "invoice", "export", "ai-report"]) as Set<string>
+    const syncFromHash = () => {
+      if (typeof window === "undefined") return
+      const h = window.location.hash?.replace("#", "")
+      if (h && validTabs.has(h)) setTab(h)
+    }
+    syncFromHash()
+    window.addEventListener("hashchange", syncFromHash)
+    return () => window.removeEventListener("hashchange", syncFromHash)
   }, [])
 
   // Handle form submission
@@ -132,20 +147,16 @@ export default function TimeTracker() {
   }
 
   return (
-    <div className="container mx-auto p-6 max-w-6xl">
+    <motion.div className="container mx-auto p-6 max-w-6xl" variants={staggerContainer} initial="hidden" animate="show">
       <div className="mb-8 flex justify-between items-start">
-        <div>
+        <motion.div variants={fadeInUp}>
           <h1 className="text-3xl font-bold mb-2">Time Tracker</h1>
           <p className="text-muted-foreground">Track your work hours, manage leave, and analyze productivity. Configure your salary and working hours in Profile.</p>
-        </div>
+        </motion.div>
         <div className="flex gap-2">
           <Button variant="outline" onClick={() => router.push("/profile")}>
             <User className="h-4 w-4 mr-2" />
             Profile
-          </Button>
-          <Button variant="outline" onClick={handleLogout}>
-            <LogOut className="h-4 w-4 mr-2" />
-            Logout
           </Button>
         </div>
       </div>
@@ -164,7 +175,8 @@ export default function TimeTracker() {
 
       {/* Daily Summary */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-        <Card>
+        <motion.div variants={fadeInUp}>
+          <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Hours Today</CardTitle>
             <Clock className="h-4 w-4 text-muted-foreground" />
@@ -175,9 +187,11 @@ export default function TimeTracker() {
               {todayEntries.length} {todayEntries.length === 1 ? "entry" : "entries"}
             </p>
           </CardContent>
-        </Card>
+          </Card>
+        </motion.div>
 
-        <Card>
+        <motion.div variants={fadeInUp}>
+          <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Earnings Today</CardTitle>
             <DollarSign className="h-4 w-4 text-muted-foreground" />
@@ -186,9 +200,11 @@ export default function TimeTracker() {
             <div className="text-2xl font-bold text-green-600">${todayTotalEarnings.toFixed(2)}</div>
             <p className="text-xs text-muted-foreground">Based on logged hours</p>
           </CardContent>
-        </Card>
+          </Card>
+        </motion.div>
 
-        <Card>
+        <motion.div variants={fadeInUp}>
+          <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Leave Today</CardTitle>
             <CalendarX className="h-4 w-4 text-muted-foreground" />
@@ -197,10 +213,19 @@ export default function TimeTracker() {
             <div className="text-2xl font-bold text-orange-600">{todayLeaveCount}</div>
             <p className="text-xs text-muted-foreground">{todayLeaveCount > 0 ? "Day off" : "Work day"}</p>
           </CardContent>
-        </Card>
+          </Card>
+        </motion.div>
       </div>
 
-      <Tabs defaultValue="log" className="space-y-6">
+      <Tabs value={tab} onValueChange={(v) => {
+        setTab(v)
+        // keep hash in URL for deep-linking
+        if (typeof window !== "undefined") {
+          const hash = v === "log" ? "" : `#${v}`
+          const url = `${window.location.pathname}${hash}`
+          window.history.replaceState(null, "", url)
+        }
+      }} className="space-y-6">
         <TabsList className="grid w-full grid-cols-6">
           <TabsTrigger value="log">Log Time</TabsTrigger>
           <TabsTrigger value="history">History</TabsTrigger>
@@ -240,33 +265,43 @@ export default function TimeTracker() {
 
           {/* Today's entries */}
           {todayEntries.length > 0 && (
-            <div>
+            <motion.div variants={fadeInUp}>
               <h3 className="text-lg font-semibold mb-4">Today's Entries</h3>
               <TimeEntryList entries={todayEntries} onEdit={handleEdit} onDelete={handleDelete} />
-            </div>
+            </motion.div>
           )}
         </TabsContent>
 
         <TabsContent value="history">
-          <TimeEntryList entries={entries} onEdit={handleEdit} onDelete={handleDelete} />
+          <motion.div variants={fadeInUp}>
+            <TimeEntryList entries={entries} onEdit={handleEdit} onDelete={handleDelete} />
+          </motion.div>
         </TabsContent>
 
         <TabsContent value="summary">
-          <SummaryDashboard entries={entries} />
+          <motion.div variants={fadeInUp}>
+            <SummaryDashboard entries={entries} />
+          </motion.div>
         </TabsContent>
 
-        <TabsContent value="invoice">
-          <InvoiceGenerator />
+        <TabsContent value="invoice" id="invoice">
+          <motion.div variants={fadeInUp}>
+            <InvoiceGenerator />
+          </motion.div>
         </TabsContent>
 
-        <TabsContent value="export">
-          <ExportManager />
+        <TabsContent value="export" id="export">
+          <motion.div variants={fadeInUp}>
+            <ExportManager />
+          </motion.div>
         </TabsContent>
 
-        <TabsContent value="ai-report">
-          <AIReportGenerator />
+        <TabsContent value="ai-report" id="ai-report">
+          <motion.div variants={fadeInUp}>
+            <AIReportGenerator />
+          </motion.div>
         </TabsContent>
       </Tabs>
-    </div>
+    </motion.div>
   )
 }

@@ -120,6 +120,17 @@
     @apply border-border outline-ring/50;
   }
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground antialiased;
   }
 }
+
+/* Smooth transitions for interactive elements */
+@layer components {
+  .soft-card {
+    @apply rounded-2xl shadow-sm border bg-card transition-shadow;
+  }
+  .soft-card:hover {
+    @apply shadow-md;
+  }
+}
+
