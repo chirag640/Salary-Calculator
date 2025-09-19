@@ -16,6 +16,7 @@ export default function ProfilePage() {
 
   const [name, setName] = useState("")
   const [email, setEmail] = useState("")
+  const [username, setUsername] = useState("")
   const [phone, setPhone] = useState("")
   const [hoursPerDay, setHoursPerDay] = useState<number>(8)
   const [daysPerMonth, setDaysPerMonth] = useState<number>(22)
@@ -40,6 +41,7 @@ export default function ProfilePage() {
           const data: ProfileResponse = await res.json()
           setProfile(data)
           setName(data.name)
+          setUsername(data.username || "")
           setEmail(data.email)
           setPhone(data.contact?.phone || "")
           setHoursPerDay(data.workingConfig?.hoursPerDay ?? 8)
@@ -69,9 +71,11 @@ export default function ProfilePage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name,
+          username,
           contact: { phone },
           workingConfig: { hoursPerDay, daysPerMonth },
           overtime: { enabled: otEnabled, thresholdHoursPerDay: otThreshold, multiplier: otMultiplier },
+          currentSalary: { amount: currentSalary, salaryType: currentSalaryType },
         }),
       })
     } finally {
@@ -112,6 +116,10 @@ export default function ProfilePage() {
             <div>
               <Label>Name</Label>
               <Input value={name} onChange={(e) => setName(e.target.value)} />
+            </div>
+            <div>
+              <Label>Username</Label>
+              <Input value={username} onChange={(e) => setUsername(e.target.value)} placeholder="Optional username" />
             </div>
             <div>
               <Label>Email</Label>

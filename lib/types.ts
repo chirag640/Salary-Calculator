@@ -117,14 +117,20 @@ export interface ProfileResponse {
   _id: string
   email: string
   name: string
+  username?: string
   contact?: User["contact"]
   workingConfig?: WorkingConfig
   overtime?: OvertimeConfig
   salaryHistory: SalaryRecord[]
+  currentSalary?: {
+    amount: number
+    salaryType: SalaryType
+  }
 }
 
 export interface UpdateProfileRequest {
   name?: string
+  username?: string
   contact?: User["contact"]
   workingConfig?: WorkingConfig
   overtime?: OvertimeConfig

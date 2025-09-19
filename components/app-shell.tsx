@@ -46,37 +46,39 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="min-h-dvh bg-gradient-to-b from-background to-muted">
-      <header className="sticky top-0 z-40 backdrop-blur supports-[backdrop-filter]:bg-background/70 border-b">
-        <div className="container mx-auto max-w-6xl px-4 h-14 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Gauge className="h-5 w-5 text-primary" />
-            <Link href="/" className="font-semibold tracking-tight">Salary Counter</Link>
-          </div>
-          <nav className="hidden md:flex items-center gap-1">
-            <NavItems />
-          </nav>
-          <div className="flex items-center gap-2">
-            <ThemeToggle />
-            <Button variant="outline" size="sm" onClick={logout}>
-              <LogOut className="h-4 w-4 mr-2" /> Logout
-            </Button>
-            <Sheet open={open} onOpenChange={setOpen}>
-              <SheetTrigger asChild>
-                <Button variant="ghost" size="icon" className="md:hidden" aria-label="Open menu">
-                  <Menu className="h-5 w-5" />
-                </Button>
-              </SheetTrigger>
-              <SheetContent side="right" className="flex flex-col gap-2">
-                <div className="mt-8 flex flex-col gap-1">
-                  <NavItems />
-                </div>
-                <div className="mt-auto">
-                  <Button variant="outline" className="w-full" onClick={() => { setOpen(false); logout() }}>
-                    <LogOut className="h-4 w-4 mr-2" /> Logout
+      <header className="sticky top-4 z-50 pointer-events-auto">
+        <div className="container mx-auto max-w-6xl px-4">
+          <div className="mx-auto -mt-2 mb-6 rounded-xl bg-white/6 dark:bg-black/30 backdrop-blur-lg border border-white/6 dark:border-black/30 shadow-md p-3 flex items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <Gauge className="h-6 w-6 text-primary" />
+              <Link href="/" className="font-semibold tracking-tight text-lg">Salary Counter</Link>
+            </div>
+            <nav className="hidden md:flex items-center gap-2">
+              <NavItems />
+            </nav>
+            <div className="flex items-center gap-2">
+              <ThemeToggle />
+              <Button variant="ghost" size="sm" onClick={logout} className="rounded-md px-3 py-1.5 border">
+                <LogOut className="h-4 w-4 mr-2" /> Logout
+              </Button>
+              <Sheet open={open} onOpenChange={setOpen}>
+                <SheetTrigger asChild>
+                  <Button variant="ghost" size="icon" className="md:hidden" aria-label="Open menu">
+                    <Menu className="h-5 w-5" />
                   </Button>
-                </div>
-              </SheetContent>
-            </Sheet>
+                </SheetTrigger>
+                <SheetContent side="right" className="flex flex-col gap-2">
+                  <div className="mt-8 flex flex-col gap-1">
+                    <NavItems />
+                  </div>
+                  <div className="mt-auto">
+                    <Button variant="outline" className="w-full" onClick={() => { setOpen(false); logout() }}>
+                      <LogOut className="h-4 w-4 mr-2" /> Logout
+                    </Button>
+                  </div>
+                </SheetContent>
+              </Sheet>
+            </div>
           </div>
         </div>
       </header>

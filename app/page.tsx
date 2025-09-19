@@ -148,17 +148,10 @@ export default function TimeTracker() {
 
   return (
     <motion.div className="container mx-auto p-6 max-w-6xl" variants={staggerContainer} initial="hidden" animate="show">
-      <div className="mb-8 flex justify-between items-start">
+      <div className="mb-8">
         <motion.div variants={fadeInUp}>
-          <h1 className="text-3xl font-bold mb-2">Time Tracker</h1>
           <p className="text-muted-foreground">Track your work hours, manage leave, and analyze productivity. Configure your salary and working hours in Profile.</p>
         </motion.div>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={() => router.push("/profile")}>
-            <User className="h-4 w-4 mr-2" />
-            Profile
-          </Button>
-        </div>
       </div>
 
       {/* Date Selection */}
