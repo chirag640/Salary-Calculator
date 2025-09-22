@@ -34,6 +34,30 @@ export function TimeEntryForm({ selectedDate, onSubmit, initialData, isEditing =
   const [leaveReason, setLeaveReason] = useState(initialData?.leave?.leaveReason || "")
   const [isSubmitting, setIsSubmitting] = useState(false)
 
+  // Keep form state in sync when switching between entries to edit or exiting edit mode
+  React.useEffect(() => {
+    if (initialData && isEditing) {
+      setTimeIn(initialData.timeIn || "")
+      setTimeOut(initialData.timeOut || "")
+      setManualHours(initialData.totalHours || 0)
+      setHourlyRate(initialData.hourlyRate || 0)
+      setWorkDescription(initialData.workDescription || "")
+      setIsLeave(initialData.leave?.isLeave || false)
+      setLeaveType(initialData.leave?.leaveType || "Sick")
+      setLeaveReason(initialData.leave?.leaveReason || "")
+    } else if (!isEditing) {
+      // Reset to defaults when not editing
+      setTimeIn("")
+      setTimeOut("")
+      setManualHours(0)
+      setWorkDescription("")
+      setIsLeave(false)
+      setLeaveType("Sick")
+      setLeaveReason("")
+      // Hourly rate will be fetched by the effect below
+    }
+  }, [initialData, isEditing])
+
   // Live calculation
   const calculation = (() => {
     if (isLeave || hourlyRate <= 0) return { totalHours: 0, totalEarnings: 0 }

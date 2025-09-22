@@ -34,7 +34,15 @@ export default function TimeTracker() {
       const response = await fetch(url)
       if (response.ok) {
         const data = await response.json()
-        setEntries(data)
+        // Normalize _id to a string to ensure edit/delete routes work reliably
+        const normalized = (Array.isArray(data) ? data : []).map((e: any) => ({
+          ...e,
+          _id:
+            typeof e?._id === 'object'
+              ? e?._id?.$oid || e?._id?.toString?.() || String(e?._id)
+              : e?._id,
+        }))
+        setEntries(normalized)
       }
     } catch (error) {
       console.error("Error fetching entries:", error)
@@ -98,6 +106,12 @@ export default function TimeTracker() {
   const handleEdit = (entry: TimeEntry) => {
     setEditingEntry(entry)
     setSelectedDate(new Date(entry.date + "T00:00:00"))
+    // Ensure the form is visible when editing from History tab
+    setTab('log')
+    if (typeof window !== 'undefined') {
+      const url = `${window.location.pathname}`
+      window.history.replaceState(null, '', url)
+    }
   }
 
   // Handle delete

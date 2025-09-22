@@ -7,9 +7,8 @@ import { AppShell } from '@/components/app-shell'
 import { ThemeProvider } from '@/components/theme-provider'
 
 export const metadata: Metadata = {
-  title: 'v0 App',
-  description: 'Created with v0',
-  generator: 'v0.app',
+  title: 'Salary Calculator',
+  description: 'A simple app to calculate your salary based on time tracked.',
 }
 
 export default function RootLayout({
