@@ -74,27 +74,34 @@ export async function POST(request: NextRequest) {
     }))
 
     if (format === "csv") {
-      // Generate CSV
+      // Generate CSV (robust escaping, BOM for Excel, CRLF line endings)
       const headers = Object.keys(exportRows[0])
-      const csvContent = [
+
+      const csvEscape = (val: any) => {
+        if (val === null || val === undefined) return ""
+        // Format numeric columns to 2 decimals for consistency
+        if (typeof val === "number") return val.toFixed(2)
+        let s = String(val)
+        // Escape double quotes by doubling them
+        if (s.includes('"')) s = s.replace(/"/g, '""')
+        // If value contains comma, newline, or leading/trailing spaces, wrap in quotes
+        if (s.includes(",") || s.includes("\n") || s.includes("\r") || /^\s|\s$/.test(s)) {
+          return `"${s}"`
+        }
+        return s
+      }
+
+      const rows = [
         headers.join(","),
-        ...exportRows.map((row) =>
-          headers
-            .map((header) => {
-              const value = row[header as keyof typeof row]
-              // Escape commas and quotes in CSV
-              if (typeof value === "string" && (value.includes(",") || value.includes('"'))) {
-                return `"${value.replace(/"/g, '""')}"`
-              }
-              return value
-            })
-            .join(","),
-        ),
-      ].join("\n")
+        ...exportRows.map((row) => headers.map((h) => csvEscape(row[h as keyof typeof row])).join(",")),
+      ].join("\r\n")
+
+      // Prepend UTF-8 BOM to improve Excel compatibility on Windows
+      const csvContent = "\uFEFF" + rows
 
       return new Response(csvContent, {
         headers: {
-          "Content-Type": "text/csv",
+          "Content-Type": "text/csv; charset=utf-8",
           "Content-Disposition": `attachment; filename="time-entries-${startDate}-to-${endDate}.csv"`,
         },
       })
