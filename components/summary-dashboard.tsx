@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button"
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts"
 import { Clock, DollarSign, Briefcase, CalendarX } from "lucide-react"
 import type { TimeEntry, PeriodSummary, ProjectSummary, ProfileResponse } from "@/lib/types"
-import { format, startOfWeek, startOfMonth, parseISO } from "date-fns"
+import { format, startOfWeek, startOfMonth, endOfWeek, endOfMonth, parseISO } from "date-fns"
 
 interface SummaryDashboardProps {
   entries: TimeEntry[]
@@ -43,6 +43,19 @@ export function SummaryDashboard({ entries }: SummaryDashboardProps) {
     return true
   })
 
+  // Narrow entries to the currently selected period (current week or current month)
+  const now = new Date()
+  const periodStart = selectedPeriod === "week" ? startOfWeek(now) : startOfMonth(now)
+  const periodEnd = selectedPeriod === "week" ? endOfWeek(now) : endOfMonth(now)
+  const periodEntries = filteredEntries.filter((entry) => {
+    try {
+      const d = parseISO(entry.date)
+      return d >= periodStart && d <= periodEnd
+    } catch {
+      return false
+    }
+  })
+
   // Calculate summary data
   const calculateSummary = (): PeriodSummary => {
     const daily: { [date: string]: any } = {}
@@ -50,7 +63,9 @@ export function SummaryDashboard({ entries }: SummaryDashboardProps) {
     const monthly: { [month: string]: any } = {}
     const projectMap: { [key: string]: ProjectSummary } = {}
 
-    filteredEntries.forEach((entry) => {
+  // Use only entries from the selected period for aggregation
+  const sourceEntries = periodEntries
+  sourceEntries.forEach((entry) => {
       const date = entry.date
       const weekStart = format(startOfWeek(parseISO(date)), "yyyy-MM-dd")
       const monthStart = format(startOfMonth(parseISO(date)), "yyyy-MM")

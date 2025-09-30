@@ -31,29 +31,24 @@ export async function POST(request: NextRequest) {
     })
 
     const response = NextResponse.json({
+      // token still included for backward compatibility but should not be stored client-side
       token,
       user: {
         _id: user._id.toString(),
         email: user.email,
         name: user.name,
       },
+      meta: { message: "Login successful" },
     })
-    // Debug: log token created
-    try {
-      // eslint-disable-next-line no-console
-      console.log(`[login API] generated token for ${user.email} token length=${token.length}`)
-    } catch {}
+
+    // Harden cookie: HttpOnly, Secure (prod), SameSite=Strict to mitigate CSRF.
     response.cookies.set("auth-token", token, {
-      httpOnly: false, // middleware reads from request cookies; client reads localStorage
+      httpOnly: true,
       secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-      maxAge: 7 * 24 * 60 * 60,
+      sameSite: "strict",
+      maxAge: 7 * 24 * 60 * 60, // 7 days
       path: "/",
     })
-    try {
-      // eslint-disable-next-line no-console
-      console.log(`[login API] Set-Cookie auth-token set`)
-    } catch {}
     return response
   } catch (error) {
     console.error("Login error:", error)

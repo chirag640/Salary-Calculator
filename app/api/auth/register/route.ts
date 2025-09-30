@@ -40,14 +40,23 @@ export async function POST(request: NextRequest) {
       name,
     })
 
-    return NextResponse.json({
-      token,
+    const response = NextResponse.json({
+      token, // exposed for backwards compatibility only
       user: {
         _id: result.insertedId.toString(),
         email,
         name,
       },
+      meta: { message: "Registration successful" },
     })
+    response.cookies.set("auth-token", token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "strict",
+      maxAge: 7 * 24 * 60 * 60,
+      path: "/",
+    })
+    return response
   } catch (error) {
     console.error("Registration error:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })

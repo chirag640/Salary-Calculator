@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback, useRef } from "react"
 import { TimeEntryForm } from "@/components/time-entry-form"
 import { TimeEntryList } from "@/components/time-entry-list"
 import { DatePicker } from "@/components/date-picker"
@@ -16,14 +16,21 @@ import { Clock, DollarSign, CalendarX, BarChart3, FileText, Download, Brain, Use
 import { format } from "date-fns"
 import { useRouter } from "next/navigation"
 import { motion, fadeInUp, staggerContainer } from "@/components/motion"
+import { useToast } from "@/hooks/use-toast"
+import { ToastAction } from "@/components/ui/toast"
 
 export default function TimeTracker() {
   const [selectedDate, setSelectedDate] = useState(new Date())
   const [entries, setEntries] = useState<TimeEntry[]>([])
+  const [historyItems, setHistoryItems] = useState<TimeEntry[]>([])
+  const [nextCursor, setNextCursor] = useState<string | null>(null)
+  const [loadingMore, setLoadingMore] = useState(false)
+  const loadMoreRef = useRef<HTMLDivElement | null>(null)
   const [editingEntry, setEditingEntry] = useState<TimeEntry | null>(null)
   const [loading, setLoading] = useState(true)
   const [tab, setTab] = useState<string>("log")
   const router = useRouter()
+  const { toast } = useToast()
 
   const selectedDateString = format(selectedDate, "yyyy-MM-dd")
 
@@ -34,8 +41,10 @@ export default function TimeTracker() {
       const response = await fetch(url)
       if (response.ok) {
         const data = await response.json()
+        // Backwards compatibility: if array return full list; if object with items use pagination
+        const list = Array.isArray(data) ? data : Array.isArray(data.items) ? data.items : []
         // Normalize _id to a string to ensure edit/delete routes work reliably
-        const normalized = (Array.isArray(data) ? data : []).map((e: any) => ({
+        const normalized = list.map((e: any) => ({
           ...e,
           _id:
             typeof e?._id === 'object'
@@ -43,18 +52,70 @@ export default function TimeTracker() {
               : e?._id,
         }))
         setEntries(normalized)
+        if (!Array.isArray(data)) {
+          setHistoryItems(normalized)
+          setNextCursor(data.nextCursor || null)
+        } else {
+          // legacy mode
+          setHistoryItems(normalized)
+          setNextCursor(null)
+        }
       }
     } catch (error) {
       console.error("Error fetching entries:", error)
+      toast({
+        title: "Failed to load entries",
+        description: "Please refresh or try again shortly.",
+        variant: "destructive",
+      })
     } finally {
       setLoading(false)
     }
   }
 
+  const loadMore = useCallback(async () => {
+    if (!nextCursor || loadingMore) return
+    setLoadingMore(true)
+    try {
+      const response = await fetch(`/api/time-entries?limit=50&cursor=${encodeURIComponent(nextCursor)}`)
+      if (response.ok) {
+        const data = await response.json()
+        const newItems = (data.items || []).map((e: any) => ({
+          ...e,
+          _id: typeof e?._id === 'object' ? e?._id?.$oid || e?._id?.toString?.() || String(e?._id) : e?._id,
+        }))
+        setHistoryItems((prev) => [...prev, ...newItems])
+        setNextCursor(data.nextCursor || null)
+      }
+    } catch (e) {
+      console.error('Error loading more entries', e)
+      toast({
+        title: "Could not load more history",
+        description: "Scrolling will retry automatically.",
+        variant: "destructive",
+      })
+    } finally {
+      setLoadingMore(false)
+    }
+  }, [nextCursor, loadingMore])
+
   // Load entries on mount and date change
   useEffect(() => {
     fetchEntries()
   }, [])
+
+  // Infinite scroll observer for history tab
+  useEffect(() => {
+    if (!loadMoreRef.current) return
+    const el = loadMoreRef.current
+    const observer = new IntersectionObserver((entriesObs) => {
+      if (entriesObs[0].isIntersecting) {
+        loadMore()
+      }
+    }, { rootMargin: '200px' })
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [loadMore, nextCursor])
 
   // Sync tab with URL hash (for anchors from AppShell)
   useEffect(() => {
@@ -74,15 +135,29 @@ export default function TimeTracker() {
     try {
       if (editingEntry) {
         // Update existing entry
-        const response = await fetch(`/api/time-entries/${editingEntry._id}`, {
+        // Optimistic update
+        const optimisticId = editingEntry._id!
+        const prev = entries
+        const response = await fetch(`/api/time-entries/${optimisticId}`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(entryData),
         })
-
         if (response.ok) {
+          setEntries(prev.map(e => e._id === optimisticId ? { ...e, ...entryData, updatedAt: new Date() } as any : e))
+          setHistoryItems(h => h.map(e => e._id === optimisticId ? { ...e, ...entryData, updatedAt: new Date() } as any : e))
           setEditingEntry(null)
-          fetchEntries()
+          toast({
+            title: "Entry updated",
+            description: `Updated ${entryData.date || selectedDateString}.`,
+          })
+        } else {
+          await fetchEntries()
+          toast({
+            title: "Update failed",
+            description: "The server rejected the change.",
+            variant: "destructive",
+          })
         }
       } else {
         // Create new entry
@@ -91,14 +166,30 @@ export default function TimeTracker() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(entryData),
         })
-
         if (response.ok) {
-          fetchEntries()
+          const created = await response.json()
+          setEntries((prev) => [...prev, created])
+          setHistoryItems((prev) => [created, ...prev])
+          toast({
+            title: "Entry logged",
+            description: `${created.totalHours?.toFixed?.(2) || "0"}h on ${created.date}`,
+          })
+        } else {
+          await fetchEntries()
+          toast({
+            title: "Could not create entry",
+            description: "Please review your input and try again.",
+            variant: "destructive",
+          })
         }
       }
     } catch (error) {
       console.error("Error saving entry:", error)
-      throw error
+      toast({
+        title: "Save failed",
+        description: "Network or server error occurred.",
+        variant: "destructive",
+      })
     }
   }
 
@@ -117,16 +208,65 @@ export default function TimeTracker() {
   // Handle delete
   const handleDelete = async (id: string) => {
     try {
-      const response = await fetch(`/api/time-entries/${id}`, {
-        method: "DELETE",
+      // Optimistic removal (soft delete in UI)
+      const removedEntry = entries.find(e => e._id === id)
+      setEntries(prev => prev.filter(e => e._id !== id))
+      setHistoryItems(prev => prev.filter(e => e._id !== id))
+      const response = await fetch(`/api/time-entries/${id}`, { method: "DELETE" })
+      if (!response.ok) {
+        await fetchEntries()
+        toast({
+          title: "Delete failed",
+          description: "Entry was restored.",
+          variant: "destructive",
+        })
+        return
+      }
+      const json = await response.json().catch(() => ({}))
+      const { restoreToken, expiresInMs } = json || {}
+      let undo = false
+      toast({
+        title: "Entry deleted",
+        description: "You can undo this action.",
+        action: restoreToken ? (
+          <ToastAction altText="Undo" onClick={async () => {
+            if (!restoreToken) return
+            undo = true
+            try {
+              const r = await fetch(`/api/time-entries/${id}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ restoreToken }),
+              })
+              if (r.ok) {
+                // Re-fetch just that entry (simpler: full fetch for now)
+                await fetchEntries()
+                toast({ title: 'Restored', description: 'Entry was brought back.' })
+              } else {
+                toast({ title: 'Undo failed', description: 'Restore window may have expired.', variant: 'destructive' })
+              }
+            } catch {
+              toast({ title: 'Undo failed', description: 'Network error.', variant: 'destructive' })
+            }
+          }}>Undo</ToastAction>
+        ) : undefined,
       })
-
-      if (response.ok) {
-        fetchEntries()
+      // Fallback: if undo not clicked and restore token exists, after expiry ensure not re-added
+      if (restoreToken && removedEntry) {
+        setTimeout(() => {
+          // If undo occurred we already restored
+          if (undo) return
+          // Optionally could purge permanently later (cron job server-side). Client does nothing.
+        }, Math.min(expiresInMs || 15000, 30000))
       }
     } catch (error) {
       console.error("Error deleting entry:", error)
-      throw error
+      toast({
+        title: "Delete failed",
+        description: "Network or server error occurred.",
+        variant: "destructive",
+      })
+      try { await fetchEntries() } catch {}
     }
   }
 
@@ -139,8 +279,7 @@ export default function TimeTracker() {
   const handleLogout = async () => {
     try {
       await fetch("/api/auth/logout", { method: "POST" })
-      document.cookie = "auth-token=; path=/; max-age=0"
-      try { localStorage.removeItem("auth-token") } catch {}
+      // HttpOnly cookie cleared server-side; client fallback removal not needed.
       router.push("/login")
     } catch (error) {
       console.error("Logout error:", error)
@@ -281,7 +420,10 @@ export default function TimeTracker() {
 
         <TabsContent value="history">
           <motion.div variants={fadeInUp}>
-            <TimeEntryList entries={entries} onEdit={handleEdit} onDelete={handleDelete} />
+            <TimeEntryList entries={historyItems} onEdit={handleEdit} onDelete={handleDelete} />
+            <div ref={loadMoreRef} className="h-10 flex items-center justify-center text-xs text-muted-foreground">
+              {nextCursor ? (loadingMore ? 'Loading more...' : 'Scroll to load more') : 'End of history'}
+            </div>
           </motion.div>
         </TabsContent>
 

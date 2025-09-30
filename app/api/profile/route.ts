@@ -9,7 +9,7 @@ export async function GET(request: NextRequest) {
   try {
     const cookieToken = request.cookies.get("auth-token")?.value
     const userFromToken = cookieToken ? verifyToken(cookieToken) : null
-    const userId = userFromToken?._id || request.headers.get("x-user-id")
+  const userId = userFromToken?._id
     if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
     const { db } = await connectToDatabase()
@@ -36,7 +36,7 @@ export async function PUT(request: NextRequest) {
   try {
     const cookieToken = request.cookies.get("auth-token")?.value
     const userFromToken = cookieToken ? verifyToken(cookieToken) : null
-    const userId = userFromToken?._id || request.headers.get("x-user-id")
+  const userId = userFromToken?._id
     if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
     const body: UpdateProfileRequest = await request.json()

@@ -34,20 +34,8 @@ export default function LoginPage() {
       const data = await response.json()
 
       if (response.ok) {
-        // Debug logging
-        try { console.log('[login page] response ok, token length=', data.token?.length) } catch {}
-        // Persist token for client-side reads (optional) and set cookie (server also sets it)
-        try {
-          localStorage.setItem("auth-token", data.token)
-        } catch {}
-        // Also set cookie immediately to avoid any race with Set-Cookie processing
-        try {
-          document.cookie = `auth-token=${data.token}; path=/; max-age=${7 * 24 * 60 * 60}`
-        } catch {}
-        // Debug - show cookie before navigation
-        try { console.log('[login page] cookie before redirect=', document.cookie) } catch {}
-        // Hard reload to ensure middleware reads the cookie before navigation
-        window.location.href = "/"
+        // Cookie is now HttpOnly and set by server; just navigate.
+        router.replace("/")
       } else {
         setError(data.error || "Login failed")
       }
@@ -60,15 +48,8 @@ export default function LoginPage() {
 
   // If already logged in (cookie from server or token in localStorage), redirect away from login
   // This is a light client-side guard; the middleware is the main gate.
-  useEffect(() => {
-    const hasTokenCookie = typeof document !== 'undefined' && document.cookie.split('; ').some(c => c.startsWith('auth-token='))
-    let lsToken: string | null = null
-    try { lsToken = typeof window !== 'undefined' ? localStorage.getItem('auth-token') : null } catch {}
-    if (hasTokenCookie || lsToken) {
-      router.replace('/')
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  // With HttpOnly cookie we can't reliably read it client-side; optional: could call a /api/me endpoint.
+  // For simplicity we skip auto-redirect here; middleware protects authenticated pages.
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background bg-aurora px-4 py-12">
@@ -107,6 +88,11 @@ export default function LoginPage() {
                 required
                 placeholder="Enter your password"
               />
+              <div className="flex justify-end pt-1">
+                <Link href="/forgot-password" className="text-xs text-primary hover:underline">
+                  Forgot password?
+                </Link>
+              </div>
             </div>
 
             <Button type="submit" className="w-full" variant="glass" disabled={loading}>

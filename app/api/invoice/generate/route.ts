@@ -4,6 +4,13 @@ import type { TimeEntry } from "@/lib/types"
 import PDFDocument from "pdfkit"
 import { verifyToken } from "@/lib/auth"
 import { getEffectiveHourlyRateForDate, computeEarningsWithOvertime } from "@/lib/salary"
+import { invoiceRequestSchema } from "@/lib/validation/schemas"
+import { validateCsrf } from "@/lib/csrf"
+import { rateLimit, buildRateLimitKey } from "@/lib/rate-limit"
+
+function escapeRegex(input: string) {
+  return input.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+}
 
 interface InvoiceRequest {
   startDate: string
@@ -19,15 +26,26 @@ export async function POST(request: NextRequest) {
   try {
   const cookieToken = request.cookies.get("auth-token")?.value
   const userFromToken = cookieToken ? verifyToken(cookieToken) : null
-  const userId = userFromToken?._id || request.headers.get("x-user-id")
-  const userEmail = userFromToken?.email || request.headers.get("x-user-email")
+  const userId = userFromToken?._id
+  const userEmail = userFromToken?.email
 
     if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const invoiceData: InvoiceRequest = await request.json()
-    const { startDate, endDate, clientName, projectName, invoiceNumber, notes, breakdown } = invoiceData
+    if (!validateCsrf(request)) {
+      return NextResponse.json({ error: "Invalid CSRF token" }, { status: 403 })
+    }
+    const ip = request.headers.get("x-forwarded-for")?.split(",")[0] || "unknown"
+    const rl = rateLimit(buildRateLimitKey(ip, "invoice"), { windowMs: 60_000, max: 3 })
+    if (!rl.ok) return NextResponse.json({ error: "Rate limit exceeded" }, { status: 429 })
+
+    const raw = await request.json()
+    const parsed = invoiceRequestSchema.safeParse(raw)
+    if (!parsed.success) {
+      return NextResponse.json({ error: "Validation failed", issues: parsed.error.format() }, { status: 400 })
+    }
+    const { startDate, endDate, clientName, projectName, invoiceNumber, notes, breakdown } = parsed.data
 
     if (!startDate || !endDate) {
       return NextResponse.json({ error: "Start date and end date are required" }, { status: 400 })
@@ -44,10 +62,10 @@ export async function POST(request: NextRequest) {
     }
 
     if (clientName) {
-      query.client = new RegExp(clientName, "i")
+      query.client = new RegExp(escapeRegex(clientName), "i")
     }
     if (projectName) {
-      query.project = new RegExp(projectName, "i")
+      query.project = new RegExp(escapeRegex(projectName), "i")
     }
 
   const entries = await collection.find(query).sort({ date: 1 }).toArray()

@@ -1,6 +1,31 @@
 import type { Db } from "mongodb"
 import type { OvertimeConfig, SalaryRecord, SalaryType, WorkingConfig } from "@/lib/types"
 
+// Very small in-memory LRU-style cache for (userId|date) -> {hourlyRate, working, overtime}
+// NOTE: Single-process only; acceptable as micro-optimization. Size kept tiny to avoid unbounded memory.
+interface CacheEntry { value: { hourlyRate: number; working?: WorkingConfig; overtime?: OvertimeConfig }; ts: number }
+const RATE_CACHE = new Map<string, CacheEntry>()
+const RATE_CACHE_MAX = 200
+const RATE_CACHE_TTL_MS = 5 * 60 * 1000 // 5 minutes
+
+function makeKey(userId: string, date: string) { return `${userId}|${date}` }
+function getFromCache(userId: string, date: string) {
+  const key = makeKey(userId, date)
+  const entry = RATE_CACHE.get(key)
+  if (!entry) return null
+  if (Date.now() - entry.ts > RATE_CACHE_TTL_MS) { RATE_CACHE.delete(key); return null }
+  return entry.value
+}
+function setCache(userId: string, date: string, value: CacheEntry["value"]) {
+  const key = makeKey(userId, date)
+  RATE_CACHE.set(key, { value, ts: Date.now() })
+  if (RATE_CACHE.size > RATE_CACHE_MAX) {
+    // naïve prune: delete oldest 10
+    const entries = [...RATE_CACHE.entries()].sort((a,b)=>a[1].ts-b[1].ts).slice(0,10)
+    for (const [k] of entries) RATE_CACHE.delete(k)
+  }
+}
+
 export function hourlyFromSalary(
   salaryType: SalaryType,
   amount: number,
@@ -49,6 +74,8 @@ export async function getEffectiveHourlyRateForDate(
   userId: string,
   date: string,
 ): Promise<{ hourlyRate: number; working?: WorkingConfig; overtime?: OvertimeConfig }> {
+  const cached = getFromCache(userId, date)
+  if (cached) return cached
   const user = await db.collection("users").findOne({ _id: new (require("mongodb").ObjectId)(userId) })
   if (!user) return { hourlyRate: 0 }
   const salaryHistory: SalaryRecord[] = user.salaryHistory || []
@@ -56,8 +83,12 @@ export async function getEffectiveHourlyRateForDate(
   const overtime: OvertimeConfig | undefined = user.overtime
   const effective = pickEffectiveSalaryRecord(salaryHistory, date)
   if (!effective) {
-    return { hourlyRate: 0, working: workingConfig, overtime }
+    const val = { hourlyRate: 0, working: workingConfig, overtime }
+    setCache(userId, date, val)
+    return val
   }
   const rate = hourlyFromSalary(effective.salaryType, effective.amount, effective.working)
-  return { hourlyRate: rate, working: effective.working, overtime }
+  const val = { hourlyRate: rate, working: effective.working, overtime }
+  setCache(userId, date, val)
+  return val
 }

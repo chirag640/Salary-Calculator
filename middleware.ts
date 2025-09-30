@@ -6,6 +6,8 @@ export function middleware(request: NextRequest) {
   if (
     request.nextUrl.pathname.startsWith("/login") ||
     request.nextUrl.pathname.startsWith("/register") ||
+    request.nextUrl.pathname.startsWith("/forgot-password") ||
+    request.nextUrl.pathname.startsWith("/reset-password") ||
     request.nextUrl.pathname.startsWith("/api/auth")
   ) {
     return NextResponse.next()

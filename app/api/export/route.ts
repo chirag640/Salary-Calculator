@@ -3,6 +3,13 @@ import { connectToDatabase } from "@/lib/mongodb"
 import type { TimeEntry } from "@/lib/types"
 import * as XLSX from "xlsx"
 import { verifyToken } from "@/lib/auth"
+import { exportRequestSchema } from "@/lib/validation/schemas"
+import { rateLimit, buildRateLimitKey } from "@/lib/rate-limit"
+import { validateCsrf } from "@/lib/csrf"
+
+function escapeRegex(input: string) {
+  return input.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+}
 
 interface ExportRequest {
   startDate: string
@@ -17,14 +24,26 @@ export async function POST(request: NextRequest) {
   try {
   const cookieToken = request.cookies.get("auth-token")?.value
   const userFromToken = cookieToken ? verifyToken(cookieToken) : null
-  const userId = userFromToken?._id || request.headers.get("x-user-id")
+  const userId = userFromToken?._id
 
     if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const exportData: ExportRequest = await request.json()
-    const { startDate, endDate, format, includeLeave, clientFilter, projectFilter } = exportData
+    if (!validateCsrf(request)) {
+      return NextResponse.json({ error: "Invalid CSRF token" }, { status: 403 })
+    }
+
+    const ip = request.headers.get("x-forwarded-for")?.split(",")[0] || "unknown"
+    const rl = rateLimit(buildRateLimitKey(ip, "export"), { windowMs: 60_000, max: 5 })
+    if (!rl.ok) return NextResponse.json({ error: "Rate limit exceeded" }, { status: 429 })
+
+    const raw = await request.json()
+    const parsed = exportRequestSchema.safeParse(raw)
+    if (!parsed.success) {
+      return NextResponse.json({ error: "Validation failed", issues: parsed.error.format() }, { status: 400 })
+    }
+    const { startDate, endDate, format, includeLeave, clientFilter, projectFilter } = parsed.data
 
     if (!startDate || !endDate) {
       return NextResponse.json({ error: "Start date and end date are required" }, { status: 400 })
@@ -44,10 +63,10 @@ export async function POST(request: NextRequest) {
     }
 
     if (clientFilter) {
-      query.client = new RegExp(clientFilter, "i")
+      query.client = new RegExp(escapeRegex(clientFilter), "i")
     }
     if (projectFilter) {
-      query.project = new RegExp(projectFilter, "i")
+      query.project = new RegExp(escapeRegex(projectFilter), "i")
     }
 
     const entries = await collection.find(query).sort({ date: 1 }).toArray()

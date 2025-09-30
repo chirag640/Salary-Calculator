@@ -26,8 +26,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const logout = async () => {
     try {
       await fetch("/api/auth/logout", { method: "POST" })
-      document.cookie = "auth-token=; path=/; max-age=0"
-      try { localStorage.removeItem("auth-token") } catch {}
+      // Cookie is HttpOnly; server cleared it. Just navigate.
       router.push("/login")
     } catch {}
   }

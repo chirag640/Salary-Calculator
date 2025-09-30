@@ -3,15 +3,13 @@ export const runtime = "nodejs"
 
 export async function POST() {
   const response = NextResponse.json({ message: "Logged out successfully" })
-
-  // Clear the auth cookie
+  // Overwrite the cookie with immediate expiry. Keep security flags aligned.
   response.cookies.set("auth-token", "", {
-    httpOnly: false,
+    httpOnly: true,
     secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
+    sameSite: "strict",
     maxAge: 0,
     path: "/",
   })
-
   return response
 }

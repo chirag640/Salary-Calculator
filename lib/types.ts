@@ -14,6 +14,7 @@ export interface TimeEntry {
   leave?: LeaveEntry
   createdAt?: Date
   updatedAt?: Date
+  deletedAt?: Date | null // soft delete marker; null/undefined means active
 }
 
 export type LeaveType = "Sick" | "Vacation" | "Personal" | "Holiday" | "Other"
@@ -55,6 +56,8 @@ export interface User {
   email: string
   password: string
   name: string
+  passwordResetToken?: string // hashed token (sha256)
+  passwordResetExpires?: Date // expiry timestamp
   contact?: {
     phone?: string
     addressLine1?: string

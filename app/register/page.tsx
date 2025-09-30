@@ -47,8 +47,7 @@ export default function RegisterPage() {
       const data = await response.json()
 
       if (response.ok) {
-        // Set auth cookie and redirect to profile for initial setup
-        document.cookie = `auth-token=${data.token}; path=/; max-age=${7 * 24 * 60 * 60}`
+        // Server sets secure HttpOnly cookie; just redirect to profile setup.
         router.push("/profile")
       } else {
         setError(data.error || "Registration failed")

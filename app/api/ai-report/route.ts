@@ -5,6 +5,9 @@ import type { TimeEntry } from "@/lib/types"
 import { generateText } from "ai"
 import { openai } from "@ai-sdk/openai"
 import { verifyToken } from "@/lib/auth"
+import { aiReportRequestSchema } from "@/lib/validation/schemas"
+import { validateCsrf } from "@/lib/csrf"
+import { rateLimit, buildRateLimitKey } from "@/lib/rate-limit"
 
 interface AIReportRequest {
   startDate: string
@@ -17,14 +20,23 @@ export async function POST(request: NextRequest) {
   try {
   const cookieToken = request.cookies.get("auth-token")?.value
   const userFromToken = cookieToken ? verifyToken(cookieToken) : null
-  const userId = userFromToken?._id || request.headers.get("x-user-id")
+  const userId = userFromToken?._id
 
     if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const reportData: AIReportRequest = await request.json()
-    const { startDate, endDate, reportType, customPrompt } = reportData
+    if (!validateCsrf(request)) return NextResponse.json({ error: "Invalid CSRF token" }, { status: 403 })
+    const ip = request.headers.get("x-forwarded-for")?.split(",")[0] || "unknown"
+    const rl = rateLimit(buildRateLimitKey(ip, "ai-report"), { windowMs: 60_000, max: 5 })
+    if (!rl.ok) return NextResponse.json({ error: "Rate limit exceeded" }, { status: 429 })
+
+    const raw = await request.json()
+    const parsed = aiReportRequestSchema.safeParse(raw)
+    if (!parsed.success) {
+      return NextResponse.json({ error: "Validation failed", issues: parsed.error.format() }, { status: 400 })
+    }
+    const { startDate, endDate, reportType, customPrompt } = parsed.data
 
     if (!startDate || !endDate) {
       return NextResponse.json({ error: "Start date and end date are required" }, { status: 400 })

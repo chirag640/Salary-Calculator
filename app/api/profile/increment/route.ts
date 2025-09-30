@@ -2,6 +2,8 @@ import { type NextRequest, NextResponse } from "next/server"
 import { connectToDatabase } from "@/lib/mongodb"
 import { verifyToken } from "@/lib/auth"
 import type { AddSalaryIncrementRequest, SalaryRecord, WorkingConfig } from "@/lib/types"
+import { validateCsrf } from "@/lib/csrf"
+import { rateLimit, buildRateLimitKey } from "@/lib/rate-limit"
 
 export const runtime = "nodejs"
 
@@ -9,8 +11,13 @@ export async function POST(request: NextRequest) {
   try {
     const cookieToken = request.cookies.get("auth-token")?.value
     const userFromToken = cookieToken ? verifyToken(cookieToken) : null
-    const userId = userFromToken?._id || request.headers.get("x-user-id")
+  const userId = userFromToken?._id
     if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+
+  if (!validateCsrf(request)) return NextResponse.json({ error: "Invalid CSRF token" }, { status: 403 })
+  const ip = request.headers.get("x-forwarded-for")?.split(",")[0] || "unknown"
+  const rl = rateLimit(buildRateLimitKey(ip, "salary-increment"), { windowMs: 60_000, max: 5 })
+  if (!rl.ok) return NextResponse.json({ error: "Rate limit exceeded" }, { status: 429 })
 
     const body: AddSalaryIncrementRequest = await request.json()
     if (!body?.salaryType || !body?.amount || !body?.effectiveFrom) {

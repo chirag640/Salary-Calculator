@@ -6,46 +6,46 @@ import type { TimeEntry } from "@/lib/types"
 import { calculateTimeWorked } from "@/lib/time-utils"
 import { getEffectiveHourlyRateForDate, computeEarningsWithOvertime } from "@/lib/salary"
 import { verifyToken } from "@/lib/auth"
+import { updateTimeEntrySchema } from "@/lib/validation/schemas"
+import { validateCsrf } from "@/lib/csrf"
+import { rateLimit, buildRateLimitKey } from "@/lib/rate-limit"
 
 export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
   try {
     const cookieToken = request.cookies.get("auth-token")?.value
     const userFromToken = cookieToken ? verifyToken(cookieToken) : null
-    const userId = userFromToken?._id || request.headers.get("x-user-id")
+    const userId = userFromToken?._id
     if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const body = await request.json()
-    const {
-      date,
-      timeIn,
-      timeOut,
-      breakMinutes = 0,
-      workDescription = "",
-      client = "",
-      project = "",
-      leave,
-    } = body
-
-    // Validate required fields
-    if (!date) {
-      return NextResponse.json({ error: "Missing required fields" }, { status: 400 })
+    if (!validateCsrf(request)) {
+      return NextResponse.json({ error: "Invalid CSRF token" }, { status: 403 })
     }
+
+    const ip = request.headers.get("x-forwarded-for")?.split(",")[0] || "unknown"
+    const rl = rateLimit(buildRateLimitKey(ip, "time-entry-update"), { windowMs: 30_000, max: 20 })
+    if (!rl.ok) {
+      return NextResponse.json({ error: "Rate limit exceeded" }, { status: 429 })
+    }
+
+    const raw = await request.json()
+    const parsed = updateTimeEntrySchema.safeParse(raw)
+    if (!parsed.success) {
+      return NextResponse.json({ error: "Validation failed", issues: parsed.error.format() }, { status: 400 })
+    }
+    const { date, timeIn, timeOut, breakMinutes, workDescription = "", client = "", project = "", leave, totalHours: providedHours } = parsed.data
 
     let totalHours = 0
     let totalEarnings = 0
-
-    let hourlyRate = 0
     const { db } = await connectToDatabase()
     const eff = await getEffectiveHourlyRateForDate(db, userId, date)
-    hourlyRate = eff.hourlyRate || 0
+    const hourlyRate = eff.hourlyRate || 0
     if (!leave?.isLeave) {
       if (timeIn && timeOut) {
-        const calculation = calculateTimeWorked(timeIn, timeOut, breakMinutes, hourlyRate)
-        totalHours = calculation.totalHours
-      } else if (typeof body.totalHours === "number" && body.totalHours > 0) {
-        totalHours = Math.round(body.totalHours * 100) / 100
+        totalHours = calculateTimeWorked(timeIn, timeOut, breakMinutes, hourlyRate).totalHours
+      } else if (typeof providedHours === "number" && providedHours > 0) {
+        totalHours = Math.round(providedHours * 100) / 100
       }
       totalEarnings = computeEarningsWithOvertime(totalHours, hourlyRate, eff.overtime)
     }
@@ -67,7 +67,7 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
 
     const collection = db.collection<TimeEntry>("timeEntries")
 
-    const result = await collection.updateOne({ _id: new ObjectId(params.id) as any, userId }, { $set: updateData })
+  const result = await collection.updateOne({ _id: new ObjectId(params.id) as any, userId }, { $set: updateData })
 
     if (result.matchedCount === 0) {
       return NextResponse.json({ error: "Time entry not found" }, { status: 404 })
@@ -80,30 +80,93 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
   }
 }
 
+// Soft delete endpoint (marks deletedAt and returns a restore token good for 15s)
 export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
   try {
     const cookieToken = request.cookies.get("auth-token")?.value
     const userFromToken = cookieToken ? verifyToken(cookieToken) : null
-    const userId = userFromToken?._id || request.headers.get("x-user-id")
+    const userId = userFromToken?._id
     if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
+    if (!validateCsrf(request)) {
+      return NextResponse.json({ error: "Invalid CSRF token" }, { status: 403 })
+    }
+
+    const ip = request.headers.get("x-forwarded-for")?.split(",")[0] || "unknown"
+    const rl = rateLimit(buildRateLimitKey(ip, "time-entry-delete"), { windowMs: 30_000, max: 30 })
+    if (!rl.ok) {
+      return NextResponse.json({ error: "Rate limit exceeded" }, { status: 429 })
     }
 
     const { db } = await connectToDatabase()
     const collection = db.collection<TimeEntry>("timeEntries")
 
-    const result = await collection.deleteOne({
-  _id: new ObjectId(params.id) as any,
-      userId,
-    })
-
-    if (result.deletedCount === 0) {
+  const entry = await collection.findOne({ _id: new ObjectId(params.id) as any, userId })
+    if (!entry || entry.deletedAt) {
       return NextResponse.json({ error: "Time entry not found" }, { status: 404 })
     }
 
+    const deletedAt = new Date()
+    await collection.updateOne({ _id: entry._id, userId }, { $set: { deletedAt, updatedAt: new Date() } })
+
+    const restoreToken = Buffer.from(JSON.stringify({ id: params.id, ts: Date.now() })).toString('base64')
+    return NextResponse.json({ success: true, id: params.id, restoreToken, expiresInMs: 15_000 })
+  } catch (error) {
+    console.error("Error soft deleting time entry:", error)
+    return NextResponse.json({ error: "Failed to delete time entry" }, { status: 500 })
+  }
+}
+
+// Restore (undo) within a 15s window: POST with { restoreToken }
+export async function POST(request: NextRequest, { params }: { params: { id: string } }) {
+  try {
+    const cookieToken = request.cookies.get("auth-token")?.value
+    const userFromToken = cookieToken ? verifyToken(cookieToken) : null
+    const userId = userFromToken?._id
+    if (!userId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
+    if (!validateCsrf(request)) {
+      return NextResponse.json({ error: "Invalid CSRF token" }, { status: 403 })
+    }
+
+    const ip = request.headers.get("x-forwarded-for")?.split(",")[0] || "unknown"
+    const rl = rateLimit(buildRateLimitKey(ip, "time-entry-restore"), { windowMs: 30_000, max: 30 })
+    if (!rl.ok) {
+      return NextResponse.json({ error: "Rate limit exceeded" }, { status: 429 })
+    }
+
+    const body = await request.json().catch(() => ({})) as any
+    if (!body?.restoreToken) {
+      return NextResponse.json({ error: "Missing restoreToken" }, { status: 400 })
+    }
+    let decoded: { id: string; ts: number }
+    try {
+      decoded = JSON.parse(Buffer.from(body.restoreToken, 'base64').toString('utf8'))
+    } catch {
+      return NextResponse.json({ error: "Invalid token" }, { status: 400 })
+    }
+    if (decoded.id !== params.id) {
+      return NextResponse.json({ error: "Token mismatch" }, { status: 400 })
+    }
+    if (Date.now() - decoded.ts > 15_000) {
+      return NextResponse.json({ error: "Restore window expired" }, { status: 410 })
+    }
+
+    const { db } = await connectToDatabase()
+    const collection = db.collection<TimeEntry>("timeEntries")
+  const entry = await collection.findOne({ _id: new ObjectId(params.id) as any, userId })
+    if (!entry || !entry.deletedAt) {
+      return NextResponse.json({ error: "Entry not found or not deleted" }, { status: 404 })
+    }
+
+    await collection.updateOne({ _id: entry._id, userId }, { $set: { deletedAt: null, updatedAt: new Date() } })
     return NextResponse.json({ success: true })
   } catch (error) {
-    console.error("Error deleting time entry:", error)
-    return NextResponse.json({ error: "Failed to delete time entry" }, { status: 500 })
+    console.error("Error restoring time entry:", error)
+    return NextResponse.json({ error: "Failed to restore time entry" }, { status: 500 })
   }
 }

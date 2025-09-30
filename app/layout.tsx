@@ -5,6 +5,7 @@ import { Analytics } from '@vercel/analytics/next'
 import './globals.css'
 import { AppShell } from '@/components/app-shell'
 import { ThemeProvider } from '@/components/theme-provider'
+import { Toaster } from '@/components/ui/toaster'
 
 export const metadata: Metadata = {
   title: 'Salary Calculator',
@@ -23,6 +24,7 @@ export default function RootLayout({
           <AppShell>
             {children}
           </AppShell>
+          <Toaster />
         </ThemeProvider>
         <Analytics />
       </body>

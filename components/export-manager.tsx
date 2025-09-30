@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -29,6 +29,38 @@ export function ExportManager() {
   })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
+  const [csrfToken, setCsrfToken] = useState<string | null>(null)
+
+  // Helper to read a cookie value client-side
+  function readCookie(name: string): string | null {
+    const match = document.cookie.split(/; */).find((c) => c.startsWith(name + "="))
+    return match ? decodeURIComponent(match.split("=")[1]) : null
+  }
+
+  const ensureCsrfToken = useCallback(async () => {
+    // Try cookie first
+    const existing = readCookie("csrf-token")
+    if (existing) {
+      setCsrfToken(existing)
+      return existing
+    }
+    try {
+      const res = await fetch("/api/csrf", { method: "GET", cache: "no-store" })
+      if (res.ok) {
+        const data = await res.json()
+        setCsrfToken(data.csrfToken)
+        return data.csrfToken as string
+      }
+    } catch {
+      /* noop */
+    }
+    return null
+  }, [])
+
+  useEffect(() => {
+    // Preload a CSRF token on mount
+    ensureCsrfToken()
+  }, [ensureCsrfToken])
 
   const handleInputChange = (field: keyof ExportData, value: string | boolean) => {
     setExportData((prev) => ({ ...prev, [field]: value }))
@@ -44,9 +76,13 @@ export function ExportManager() {
     setError("")
 
     try {
+      const token = csrfToken || (await ensureCsrfToken())
       const response = await fetch("/api/export", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { "x-csrf-token": token } : {}),
+        },
         body: JSON.stringify(exportData),
       })
 
@@ -63,8 +99,38 @@ export function ExportManager() {
         a.click()
         window.URL.revokeObjectURL(url)
         document.body.removeChild(a)
+      } else if (response.status === 403) {
+        // Attempt one silent retry if CSRF failed (maybe token rotated)
+        const refreshed = await ensureCsrfToken()
+        if (refreshed) {
+          const retry = await fetch("/api/export", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "x-csrf-token": refreshed,
+            },
+            body: JSON.stringify(exportData),
+          })
+          if (retry.ok) {
+            const blob = await retry.blob()
+            const url = window.URL.createObjectURL(blob)
+            const a = document.createElement("a")
+            a.href = url
+            const filename = `time-entries-${exportData.startDate}-to-${exportData.endDate}.${exportData.format}`
+            a.download = filename
+            document.body.appendChild(a)
+            a.click()
+            window.URL.revokeObjectURL(url)
+            document.body.removeChild(a)
+          } else {
+            const errData = await retry.json().catch(() => ({}))
+            setError(errData.error || "Failed to export data (after retry)")
+          }
+        } else {
+          setError("Security token missing. Refresh the page and try again.")
+        }
       } else {
-        const errorData = await response.json()
+        const errorData = await response.json().catch(() => ({}))
         setError(errorData.error || "Failed to export data")
       }
     } catch (error) {

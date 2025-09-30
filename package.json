@@ -70,6 +70,7 @@
     "snappy": "latest",
     "socks": "latest",
     "sonner": "^1.7.4",
+    "nodemailer": "latest",
     "tailwind-merge": "^2.5.5",
     "tailwindcss-animate": "^1.0.7",
     "xlsx": "latest",
