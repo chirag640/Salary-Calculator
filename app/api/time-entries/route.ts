@@ -18,18 +18,33 @@ export async function GET(request: NextRequest) {
     if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
     const { searchParams } = new URL(request.url)
-    const date = searchParams.get("date")
+  const date = searchParams.get("date")
+  const showDeleted = searchParams.get("showDeleted") === 'true'
     const limitParam = searchParams.get("limit")
     const cursor = searchParams.get("cursor") // _id of last item from previous page
-    const limit = Math.min(Math.max(Number(limitParam) || 0, 1), 100) || 0
+    // Only enable pagination when a limit query param is explicitly provided (>0) or a cursor is present.
+    let limit = 0
+    if (limitParam) {
+      const parsed = Number(limitParam)
+      if (!isNaN(parsed) && parsed > 0) {
+        limit = Math.min(Math.max(parsed, 1), 100)
+      }
+    }
 
     const { db } = await connectToDatabase()
     const collection = db.collection<TimeEntry>("timeEntries")
 
-  const baseQuery: any = { userId, $or: [{ deletedAt: { $exists: false } }, { deletedAt: null }] }
+  const baseQuery: any = { userId }
+    if (!showDeleted) {
+      // Active (not soft-deleted) entries only
+      baseQuery.$or = [{ deletedAt: { $exists: false } }, { deletedAt: null }]
+    }
     if (date) baseQuery.date = date
 
-    // If pagination requested (limit provided or cursor present)
+    // Always paginate (default pageSize 50) unless explicit full export flag someday
+    if (limit === 0 && !cursor) {
+      limit = 50
+    }
     if (limit > 0 || cursor) {
       const paginatedQuery = { ...baseQuery }
       if (cursor) {
@@ -39,18 +54,14 @@ export async function GET(request: NextRequest) {
           return NextResponse.json({ error: "Invalid cursor" }, { status: 400 })
         }
       }
-      const docs = await collection
-        .find(paginatedQuery)
-        .sort({ _id: -1 })
-        .limit(limit || 50)
-        .toArray()
-      const nextCursor = docs.length === (limit || 50) ? docs[docs.length - 1]._id.toString() : null
-      return NextResponse.json({ items: docs, nextCursor })
+      const pageSize = limit || 50
+      const docs = await collection.find(paginatedQuery).sort({ _id: -1 }).limit(pageSize).toArray()
+      const nextCursor = docs.length === pageSize ? docs[docs.length - 1]._id.toString() : null
+      return NextResponse.json({ items: docs, nextCursor, pageSize })
     }
-
-    // Backward compatibility: no pagination params -> return full list (caution for large data)
-  const entries = await collection.find(baseQuery).sort({ date: -1, createdAt: -1 }).toArray()
-    return NextResponse.json(entries)
+    // Fallback (should not normally hit)
+    const entries = await collection.find(baseQuery).sort({ date: -1, createdAt: -1 }).limit(500).toArray()
+    return NextResponse.json({ items: entries, nextCursor: null, pageSize: entries.length })
   } catch (error) {
     console.error("Error fetching time entries:", error)
     return NextResponse.json({ error: "Failed to fetch time entries" }, { status: 500 })

@@ -84,7 +84,7 @@ export function TimeEntryList({ entries, onEdit, onDelete }: TimeEntryListProps)
 
             <div className="space-y-3">
               {dateEntries.map((entry) => (
-                <Card key={entry._id} className="hover:translate-y-[-1px] transition-transform">
+                <Card key={entry._id} className={`hover:translate-y-[-1px] transition-transform ${entry.deletedAt ? 'border-red-400/60 bg-red-50 dark:bg-red-950/30' : ''}`}>
                   <CardContent className="p-4">
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
@@ -94,6 +94,7 @@ export function TimeEntryList({ entries, onEdit, onDelete }: TimeEntryListProps)
                           </span>
                           {/* Break minutes no longer tracked; hourly rate shown for reference */}
                           <Badge variant="secondary">${entry.hourlyRate}/hr</Badge>
+                          {entry.deletedAt && <Badge variant="destructive">Deleted</Badge>}
                         </div>
 
                         <div className="flex items-center gap-4 text-sm text-muted-foreground mb-2">

@@ -35,14 +35,17 @@ export default function TimeTracker() {
   const selectedDateString = format(selectedDate, "yyyy-MM-dd")
 
   // Fetch entries
-  const fetchEntries = async (date?: string) => {
+  const fetchEntries = async (date?: string, opts?: { append?: boolean; showDeleted?: boolean }) => {
     try {
-      const url = date ? `/api/time-entries?date=${date}` : "/api/time-entries"
+      const params = new URLSearchParams()
+      params.set('limit', '50')
+      if (date) params.set('date', date)
+      if (opts?.showDeleted) params.set('showDeleted', 'true')
+      const url = `/api/time-entries?${params.toString()}`
       const response = await fetch(url)
       if (response.ok) {
         const data = await response.json()
-        // Backwards compatibility: if array return full list; if object with items use pagination
-        const list = Array.isArray(data) ? data : Array.isArray(data.items) ? data.items : []
+        const list = Array.isArray(data.items) ? data.items : Array.isArray(data) ? data : []
         // Normalize _id to a string to ensure edit/delete routes work reliably
         const normalized = list.map((e: any) => ({
           ...e,
@@ -51,15 +54,14 @@ export default function TimeTracker() {
               ? e?._id?.$oid || e?._id?.toString?.() || String(e?._id)
               : e?._id,
         }))
-        setEntries(normalized)
-        if (!Array.isArray(data)) {
-          setHistoryItems(normalized)
-          setNextCursor(data.nextCursor || null)
+        if (opts?.append) {
+          setHistoryItems(prev => [...prev, ...normalized])
         } else {
-          // legacy mode
           setHistoryItems(normalized)
-          setNextCursor(null)
         }
+        // For working set (today calculations etc.) we keep full loaded subset in entries
+        setEntries(prev => opts?.append ? [...prev, ...normalized] : normalized)
+        setNextCursor(data.nextCursor || null)
       }
     } catch (error) {
       console.error("Error fetching entries:", error)
@@ -73,11 +75,16 @@ export default function TimeTracker() {
     }
   }
 
+  const [showDeleted, setShowDeleted] = useState(false)
   const loadMore = useCallback(async () => {
     if (!nextCursor || loadingMore) return
     setLoadingMore(true)
     try {
-      const response = await fetch(`/api/time-entries?limit=50&cursor=${encodeURIComponent(nextCursor)}`)
+      const params = new URLSearchParams()
+      params.set('limit', '50')
+      params.set('cursor', nextCursor)
+      if (showDeleted) params.set('showDeleted', 'true')
+      const response = await fetch(`/api/time-entries?${params.toString()}`)
       if (response.ok) {
         const data = await response.json()
         const newItems = (data.items || []).map((e: any) => ({
@@ -85,6 +92,7 @@ export default function TimeTracker() {
           _id: typeof e?._id === 'object' ? e?._id?.$oid || e?._id?.toString?.() || String(e?._id) : e?._id,
         }))
         setHistoryItems((prev) => [...prev, ...newItems])
+        setEntries(prev => [...prev, ...newItems])
         setNextCursor(data.nextCursor || null)
       }
     } catch (e) {
@@ -97,12 +105,12 @@ export default function TimeTracker() {
     } finally {
       setLoadingMore(false)
     }
-  }, [nextCursor, loadingMore])
+  }, [nextCursor, loadingMore, showDeleted])
 
   // Load entries on mount and date change
   useEffect(() => {
-    fetchEntries()
-  }, [])
+    fetchEntries(undefined, { showDeleted })
+  }, [showDeleted])
 
   // Infinite scroll observer for history tab
   useEffect(() => {
@@ -420,6 +428,23 @@ export default function TimeTracker() {
 
         <TabsContent value="history">
           <motion.div variants={fadeInUp}>
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2 text-xs">
+                <label className="flex items-center gap-1 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    className="accent-primary"
+                    checked={showDeleted}
+                    onChange={(e) => setShowDeleted(e.target.checked)}
+                  />
+                  Show deleted
+                </label>
+                {showDeleted && <span className="text-muted-foreground">(soft-deleted items in red)</span>}
+              </div>
+              <Button size="sm" variant="outline" onClick={() => fetchEntries(undefined, { showDeleted })}>
+                Refresh
+              </Button>
+            </div>
             <TimeEntryList entries={historyItems} onEdit={handleEdit} onDelete={handleDelete} />
             <div ref={loadMoreRef} className="h-10 flex items-center justify-center text-xs text-muted-foreground">
               {nextCursor ? (loadingMore ? 'Loading more...' : 'Scroll to load more') : 'End of history'}
