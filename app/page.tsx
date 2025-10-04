@@ -31,6 +31,32 @@ export default function TimeTracker() {
   const [tab, setTab] = useState<string>("log")
   const router = useRouter()
   const { toast } = useToast()
+  const [csrfToken, setCsrfToken] = useState<string | null>(null)
+
+  // Helper to read a cookie value client-side
+  function readCookie(name: string): string | null {
+    const match = document.cookie.split(/; */).find((c) => c.startsWith(name + "="))
+    return match ? decodeURIComponent(match.split("=")[1]) : null
+  }
+
+  const ensureCsrfToken = async () => {
+    const existing = readCookie("csrf-token")
+    if (existing) {
+      setCsrfToken(existing)
+      return existing
+    }
+    try {
+      const res = await fetch("/api/csrf", { method: "GET", cache: "no-store", credentials: "same-origin" })
+      if (res.ok) {
+        const data = await res.json()
+        setCsrfToken(data.csrfToken)
+        return data.csrfToken as string
+      }
+    } catch {
+      // noop
+    }
+    return null
+  }
 
   const selectedDateString = format(selectedDate, "yyyy-MM-dd")
 
@@ -42,7 +68,7 @@ export default function TimeTracker() {
       if (date) params.set('date', date)
       if (opts?.showDeleted) params.set('showDeleted', 'true')
       const url = `/api/time-entries?${params.toString()}`
-      const response = await fetch(url)
+  const response = await fetch(url, { credentials: "same-origin" })
       if (response.ok) {
         const data = await response.json()
         const list = Array.isArray(data.items) ? data.items : Array.isArray(data) ? data : []
@@ -84,7 +110,7 @@ export default function TimeTracker() {
       params.set('limit', '50')
       params.set('cursor', nextCursor)
       if (showDeleted) params.set('showDeleted', 'true')
-      const response = await fetch(`/api/time-entries?${params.toString()}`)
+  const response = await fetch(`/api/time-entries?${params.toString()}`, { credentials: "same-origin" })
       if (response.ok) {
         const data = await response.json()
         const newItems = (data.items || []).map((e: any) => ({
@@ -146,9 +172,11 @@ export default function TimeTracker() {
         // Optimistic update
         const optimisticId = editingEntry._id!
         const prev = entries
+        const token = csrfToken || (await ensureCsrfToken())
         const response = await fetch(`/api/time-entries/${optimisticId}`, {
           method: "PUT",
-          headers: { "Content-Type": "application/json" },
+          headers: { "Content-Type": "application/json", ...(token ? { "x-csrf-token": token } : {}) },
+          credentials: "same-origin",
           body: JSON.stringify(entryData),
         })
         if (response.ok) {
@@ -169,9 +197,11 @@ export default function TimeTracker() {
         }
       } else {
         // Create new entry
+        const token = csrfToken || (await ensureCsrfToken())
         const response = await fetch("/api/time-entries", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: { "Content-Type": "application/json", ...(token ? { "x-csrf-token": token } : {}) },
+          credentials: "same-origin",
           body: JSON.stringify(entryData),
         })
         if (response.ok) {
@@ -220,7 +250,8 @@ export default function TimeTracker() {
       const removedEntry = entries.find(e => e._id === id)
       setEntries(prev => prev.filter(e => e._id !== id))
       setHistoryItems(prev => prev.filter(e => e._id !== id))
-      const response = await fetch(`/api/time-entries/${id}`, { method: "DELETE" })
+  const token = csrfToken || (await ensureCsrfToken())
+  const response = await fetch(`/api/time-entries/${id}`, { method: "DELETE", headers: token ? { "x-csrf-token": token } : {}, credentials: "same-origin" })
       if (!response.ok) {
         await fetchEntries()
         toast({
@@ -236,16 +267,18 @@ export default function TimeTracker() {
       toast({
         title: "Entry deleted",
         description: "You can undo this action.",
-        action: restoreToken ? (
-          <ToastAction altText="Undo" onClick={async () => {
+            action: restoreToken ? (
+            <ToastAction altText="Undo" onClick={async () => {
             if (!restoreToken) return
             undo = true
             try {
-              const r = await fetch(`/api/time-entries/${id}`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ restoreToken }),
-              })
+                const token = csrfToken || (await ensureCsrfToken())
+                const r = await fetch(`/api/time-entries/${id}`, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json', ...(token ? { 'x-csrf-token': token } : {}) },
+                  credentials: 'same-origin',
+                  body: JSON.stringify({ restoreToken }),
+                })
               if (r.ok) {
                 // Re-fetch just that entry (simpler: full fetch for now)
                 await fetchEntries()
