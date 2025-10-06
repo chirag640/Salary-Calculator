@@ -90,6 +90,8 @@ export async function POST(request: NextRequest) {
       "Is Leave": entry.leave?.isLeave ? "Yes" : "No",
       "Leave Type": entry.leave?.leaveType || "",
       "Leave Reason": entry.leave?.leaveReason || "",
+      "Holiday Work": entry.isHolidayWork ? "Yes" : "No",
+      "Holiday Category": entry.isHolidayWork ? (entry.holidayCategory || "") : "",
     }))
 
     if (format === "csv") {

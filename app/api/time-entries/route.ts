@@ -10,6 +10,16 @@ import { createTimeEntrySchema } from "@/lib/validation/schemas"
 import { rateLimit, buildRateLimitKey } from "@/lib/rate-limit"
 import { validateCsrf } from "@/lib/csrf"
 
+function deriveHolidayCategory(date: string): "sunday" | "saturday" | "other" {
+  try {
+    const d = new Date(date + 'T00:00:00')
+    const day = d.getUTCDay() // 0 Sunday, 6 Saturday
+    if (day === 0) return 'sunday'
+    if (day === 6) return 'saturday'
+  } catch {}
+  return 'other'
+}
+
 export async function GET(request: NextRequest) {
   try {
     const cookieToken = request.cookies.get("auth-token")?.value
@@ -91,11 +101,11 @@ export async function POST(request: NextRequest) {
     if (!parse.success) {
       return NextResponse.json({ error: "Validation failed", issues: parse.error.format() }, { status: 400 })
     }
-  const { date, timeIn, timeOut, breakMinutes, workDescription, client, project, leave, totalHours: providedHours } = parse.data
+  const { date, timeIn, timeOut, breakMinutes, workDescription, client, project, leave, totalHours: providedHours, isHolidayWork, holidayCategory, isHolidayExtra } = parse.data
 
     const { db } = await connectToDatabase()
     // Overlapping prevention: only if not leave and we have a time range
-    if (timeIn && timeOut && !leave?.isLeave) {
+  if (timeIn && timeOut && !leave?.isLeave && !(isHolidayWork && !isHolidayExtra)) {
       const overlap = await db.collection<TimeEntry>("timeEntries").findOne({
         userId,
         date,
@@ -112,29 +122,48 @@ export async function POST(request: NextRequest) {
     const hourlyRate = eff.hourlyRate || 0
     let totalHours = 0
     let totalEarnings = 0
+    // Holiday work semantics: base paid hours (9) if holiday and no hours provided.
+    const baseHolidayHours = 9
     if (!leave?.isLeave) {
-      if (timeIn && timeOut) {
-        totalHours = calculateTimeWorked(timeIn, timeOut, breakMinutes, hourlyRate).totalHours
-      } else if (typeof providedHours === "number" && providedHours > 0) {
-        totalHours = Math.round(providedHours * 100) / 100
+      if (isHolidayWork) {
+        if (isHolidayExtra && timeIn && timeOut) {
+          const extra = Math.round(calculateTimeWorked(timeIn, timeOut, breakMinutes, hourlyRate).totalHours * 100) / 100
+          totalHours = Math.round((baseHolidayHours + extra) * 100) / 100
+        } else {
+          // Ignore any provided time range when not explicitly extra
+          totalHours = baseHolidayHours
+        }
+        totalEarnings = Math.round(totalHours * hourlyRate * 100) / 100
+      } else {
+        if (timeIn && timeOut) {
+          totalHours = calculateTimeWorked(timeIn, timeOut, breakMinutes, hourlyRate).totalHours
+        } else if (typeof providedHours === "number" && providedHours > 0) {
+          totalHours = Math.round(providedHours * 100) / 100
+        }
+        totalEarnings = computeEarningsWithOvertime(totalHours, hourlyRate, eff.overtime)
       }
-      totalEarnings = computeEarningsWithOvertime(totalHours, hourlyRate, eff.overtime)
     }
+
+    // If both leave and holiday work were somehow provided, prioritize work (drop leave)
+  const effectiveLeave = isHolidayWork ? undefined : leave ? { ...leave } as any : undefined
 
     const doc: TimeEntry = {
       userId,
       date,
-      timeIn: timeIn || "",
-      timeOut: timeOut || "",
+  timeIn: isHolidayWork && !isHolidayExtra ? "" : (timeIn || ""),
+  timeOut: isHolidayWork && !isHolidayExtra ? "" : (timeOut || ""),
       breakMinutes,
       hourlyRate,
-      totalHours,
-      totalEarnings,
+  totalHours,
+  totalEarnings,
       workDescription,
       client,
       project,
-  leave: leave ? { ...leave } as any : undefined,
-      createdAt: new Date(),
+      leave: effectiveLeave,
+      isHolidayWork: !!isHolidayWork,
+    holidayCategory: isHolidayWork ? (holidayCategory || deriveHolidayCategory(date)) : undefined,
+    isHolidayExtra: isHolidayWork ? !!isHolidayExtra : undefined,
+  createdAt: new Date(),
       updatedAt: new Date(),
       deletedAt: null,
     }

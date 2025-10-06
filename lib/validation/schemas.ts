@@ -21,7 +21,10 @@ export const timeEntryBase = {
       leaveReason: z.string().max(500).optional(),
     })
     .optional(),
-  totalHours: z.number().min(0).max(24).optional(),
+  isHolidayWork: z.boolean().optional().default(false),
+  holidayCategory: z.enum(["sunday", "saturday", "other"]).optional(),
+  isHolidayExtra: z.boolean().optional().default(false),
+  totalHours: z.number().min(0).max(48).optional(),
   deletedAt: z.string().datetime().optional().nullable(),
 }
 

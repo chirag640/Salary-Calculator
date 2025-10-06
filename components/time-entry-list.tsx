@@ -95,6 +95,13 @@ export function TimeEntryList({ entries, onEdit, onDelete }: TimeEntryListProps)
                           {/* Break minutes no longer tracked; hourly rate shown for reference */}
                           <Badge variant="secondary">${entry.hourlyRate}/hr</Badge>
                           {entry.deletedAt && <Badge variant="destructive">Deleted</Badge>}
+                          {entry.isHolidayWork && (
+                            <Badge variant="outline" className="border-amber-500 text-amber-600 dark:text-amber-400">
+                              {entry.holidayCategory === 'sunday' && 'Sunday Work'}
+                              {entry.holidayCategory === 'saturday' && 'Saturday Work'}
+                              {entry.holidayCategory === 'other' && 'Holiday Work'}
+                            </Badge>
+                          )}
                         </div>
 
                         <div className="flex items-center gap-4 text-sm text-muted-foreground mb-2">

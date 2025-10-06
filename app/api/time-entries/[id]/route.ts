@@ -9,6 +9,10 @@ import { verifyToken } from "@/lib/auth"
 import { updateTimeEntrySchema } from "@/lib/validation/schemas"
 import { validateCsrf } from "@/lib/csrf"
 import { rateLimit, buildRateLimitKey } from "@/lib/rate-limit"
+function deriveHolidayCategory(date: string): "sunday" | "saturday" | "other" {
+  try { const d = new Date(date + 'T00:00:00'); const day = d.getUTCDay(); if (day === 0) return 'sunday'; if (day === 6) return 'saturday'; } catch {}
+  return 'other'
+}
 
 export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
   try {
@@ -34,26 +38,38 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
     if (!parsed.success) {
       return NextResponse.json({ error: "Validation failed", issues: parsed.error.format() }, { status: 400 })
     }
-    const { date, timeIn, timeOut, breakMinutes, workDescription = "", client = "", project = "", leave, totalHours: providedHours } = parsed.data
+  const { date, timeIn, timeOut, breakMinutes, workDescription = "", client = "", project = "", leave, totalHours: providedHours, isHolidayWork, holidayCategory, isHolidayExtra } = parsed.data
 
     let totalHours = 0
     let totalEarnings = 0
     const { db } = await connectToDatabase()
     const eff = await getEffectiveHourlyRateForDate(db, userId, date)
     const hourlyRate = eff.hourlyRate || 0
+    const baseHolidayHours = 9
     if (!leave?.isLeave) {
-      if (timeIn && timeOut) {
-        totalHours = calculateTimeWorked(timeIn, timeOut, breakMinutes, hourlyRate).totalHours
-      } else if (typeof providedHours === "number" && providedHours > 0) {
-        totalHours = Math.round(providedHours * 100) / 100
+      if (isHolidayWork) {
+        if (isHolidayExtra && timeIn && timeOut) {
+          const extra = Math.round(calculateTimeWorked(timeIn, timeOut, breakMinutes, hourlyRate).totalHours * 100) / 100
+          totalHours = Math.round((baseHolidayHours + extra) * 100) / 100
+        } else {
+          totalHours = baseHolidayHours
+        }
+        totalEarnings = Math.round(totalHours * hourlyRate * 100) / 100
+      } else {
+        if (timeIn && timeOut) {
+          totalHours = calculateTimeWorked(timeIn, timeOut, breakMinutes, hourlyRate).totalHours
+        } else if (typeof providedHours === "number" && providedHours > 0) {
+          totalHours = Math.round(providedHours * 100) / 100
+        }
+        totalEarnings = computeEarningsWithOvertime(totalHours, hourlyRate, eff.overtime)
       }
-      totalEarnings = computeEarningsWithOvertime(totalHours, hourlyRate, eff.overtime)
     }
 
-    const updateData = {
+    const effectiveLeave = isHolidayWork ? undefined : leave
+    const updateData: Partial<TimeEntry> = {
       date,
-      timeIn: timeIn || "",
-      timeOut: timeOut || "",
+  timeIn: isHolidayWork && !isHolidayExtra ? "" : (timeIn || ""),
+  timeOut: isHolidayWork && !isHolidayExtra ? "" : (timeOut || ""),
       breakMinutes,
       hourlyRate,
       totalHours,
@@ -61,8 +77,11 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
       workDescription,
       client,
       project,
-      leave,
-      updatedAt: new Date(),
+      leave: effectiveLeave,
+      isHolidayWork: !!isHolidayWork,
+    holidayCategory: isHolidayWork ? (holidayCategory || deriveHolidayCategory(date)) : undefined,
+    isHolidayExtra: isHolidayWork ? !!isHolidayExtra : undefined,
+  updatedAt: new Date(),
     }
 
     const collection = db.collection<TimeEntry>("timeEntries")

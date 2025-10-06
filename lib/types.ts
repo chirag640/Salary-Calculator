@@ -12,6 +12,10 @@ export interface TimeEntry {
   client?: string
   project?: string
   leave?: LeaveEntry
+  // Holiday / weekend work flags
+  isHolidayWork?: boolean
+  holidayCategory?: "sunday" | "saturday" | "other"
+  isHolidayExtra?: boolean // when true, time range represents extra hours in addition to base holiday hours
   createdAt?: Date
   updatedAt?: Date
   deletedAt?: Date | null // soft delete marker; null/undefined means active
