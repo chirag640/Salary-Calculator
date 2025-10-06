@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Download, FileSpreadsheet } from "lucide-react"
+import { useCsrfToken } from "@/hooks/use-csrf"
 
 interface ExportData {
   startDate: string
@@ -29,33 +30,7 @@ export function ExportManager() {
   })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
-  const [csrfToken, setCsrfToken] = useState<string | null>(null)
-
-  // Helper to read a cookie value client-side
-  function readCookie(name: string): string | null {
-    const match = document.cookie.split(/; */).find((c) => c.startsWith(name + "="))
-    return match ? decodeURIComponent(match.split("=")[1]) : null
-  }
-
-  const ensureCsrfToken = useCallback(async () => {
-    // Try cookie first
-    const existing = readCookie("csrf-token")
-    if (existing) {
-      setCsrfToken(existing)
-      return existing
-    }
-    try {
-      const res = await fetch("/api/csrf", { method: "GET", cache: "no-store" })
-      if (res.ok) {
-        const data = await res.json()
-        setCsrfToken(data.csrfToken)
-        return data.csrfToken as string
-      }
-    } catch {
-      /* noop */
-    }
-    return null
-  }, [])
+  const { csrfToken, ensureCsrfToken, refreshCsrfToken } = useCsrfToken()
 
   useEffect(() => {
     // Preload a CSRF token on mount
@@ -101,7 +76,7 @@ export function ExportManager() {
         document.body.removeChild(a)
       } else if (response.status === 403) {
         // Attempt one silent retry if CSRF failed (maybe token rotated)
-        const refreshed = await ensureCsrfToken()
+  const refreshed = await refreshCsrfToken()
         if (refreshed) {
           const retry = await fetch("/api/export", {
             method: "POST",

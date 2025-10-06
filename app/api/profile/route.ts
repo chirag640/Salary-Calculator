@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { connectToDatabase } from "@/lib/mongodb"
 import { verifyToken } from "@/lib/auth"
+import { validateCsrf } from "@/lib/csrf"
 import type { UpdateProfileRequest, ProfileResponse } from "@/lib/types"
 
 export const runtime = "nodejs"
@@ -38,6 +39,11 @@ export async function PUT(request: NextRequest) {
     const userFromToken = cookieToken ? verifyToken(cookieToken) : null
   const userId = userFromToken?._id
     if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+
+    // Enforce CSRF for profile updates
+    if (!validateCsrf(request)) {
+      return NextResponse.json({ error: "Invalid CSRF token" }, { status: 403 })
+    }
 
     const body: UpdateProfileRequest = await request.json()
     const update: any = { ...body, updatedAt: new Date() }

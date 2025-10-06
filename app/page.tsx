@@ -18,6 +18,7 @@ import { useRouter } from "next/navigation"
 import { motion, fadeInUp, staggerContainer } from "@/components/motion"
 import { useToast } from "@/hooks/use-toast"
 import { ToastAction } from "@/components/ui/toast"
+import { useCsrfToken } from "@/hooks/use-csrf"
 
 export default function TimeTracker() {
   const [selectedDate, setSelectedDate] = useState(new Date())
@@ -31,32 +32,7 @@ export default function TimeTracker() {
   const [tab, setTab] = useState<string>("log")
   const router = useRouter()
   const { toast } = useToast()
-  const [csrfToken, setCsrfToken] = useState<string | null>(null)
-
-  // Helper to read a cookie value client-side
-  function readCookie(name: string): string | null {
-    const match = document.cookie.split(/; */).find((c) => c.startsWith(name + "="))
-    return match ? decodeURIComponent(match.split("=")[1]) : null
-  }
-
-  const ensureCsrfToken = async () => {
-    const existing = readCookie("csrf-token")
-    if (existing) {
-      setCsrfToken(existing)
-      return existing
-    }
-    try {
-      const res = await fetch("/api/csrf", { method: "GET", cache: "no-store", credentials: "same-origin" })
-      if (res.ok) {
-        const data = await res.json()
-        setCsrfToken(data.csrfToken)
-        return data.csrfToken as string
-      }
-    } catch {
-      // noop
-    }
-    return null
-  }
+  const { csrfToken, ensureCsrfToken } = useCsrfToken()
 
   const selectedDateString = format(selectedDate, "yyyy-MM-dd")
 
