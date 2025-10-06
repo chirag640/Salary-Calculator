@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Download, FileText } from "lucide-react"
+import { useFetchWithCsrf } from "@/hooks/use-fetch-with-csrf"
 
 interface InvoiceData {
   startDate: string
@@ -47,12 +48,8 @@ export function InvoiceGenerator() {
     setError("")
 
     try {
-      const response = await fetch("/api/invoice/generate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(invoiceData),
-      })
-
+      const { fetchWithCsrf } = useFetchWithCsrf()
+      const response = await fetchWithCsrf("/api/invoice/generate", { method: "POST", body: JSON.stringify(invoiceData) })
       if (response.ok) {
         const blob = await response.blob()
         const url = window.URL.createObjectURL(blob)
@@ -69,9 +66,7 @@ export function InvoiceGenerator() {
       }
     } catch (error) {
       setError("Network error. Please try again.")
-    } finally {
-      setLoading(false)
-    }
+    } finally { setLoading(false) }
   }
 
   return (

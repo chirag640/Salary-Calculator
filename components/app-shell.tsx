@@ -8,6 +8,7 @@ import { ThemeToggle } from "./ui/theme-toggle"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
 import { cn } from "@/lib/utils"
 import { LogOut, Menu, Timer, User, Gauge, FileText, Download } from "lucide-react"
+import { useFetchWithCsrf } from "@/hooks/use-fetch-with-csrf"
 
 const NavLink = ({ href, icon: Icon, children }: { href: string; icon?: any; children: React.ReactNode }) => {
   const pathname = usePathname()
@@ -25,7 +26,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   const logout = async () => {
     try {
-      await fetch("/api/auth/logout", { method: "POST" })
+      const { fetchWithCsrf } = useFetchWithCsrf()
+      await fetchWithCsrf("/api/auth/logout", { method: "POST" })
       // Cookie is HttpOnly; server cleared it. Just navigate.
       router.push("/login")
     } catch {}

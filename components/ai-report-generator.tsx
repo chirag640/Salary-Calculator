@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Textarea } from "@/components/ui/textarea"
 import { Brain, Loader2, FileText } from "lucide-react"
+import { useFetchWithCsrf } from "@/hooks/use-fetch-with-csrf"
 
 interface AIReportData {
   startDate: string
@@ -48,24 +49,14 @@ export function AIReportGenerator() {
     setReport("")
 
     try {
-      const response = await fetch("/api/ai-report", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(reportData),
-      })
-
+      const { fetchWithCsrf } = useFetchWithCsrf()
+      const response = await fetchWithCsrf("/api/ai-report", { method: "POST", body: JSON.stringify(reportData) })
       const data = await response.json()
-
-      if (response.ok) {
-        setReport(data.report)
-      } else {
-        setError(data.error || "Failed to generate AI report")
-      }
+      if (response.ok) setReport(data.report)
+      else setError(data.error || "Failed to generate AI report")
     } catch (error) {
       setError("Network error. Please try again.")
-    } finally {
-      setLoading(false)
-    }
+    } finally { setLoading(false) }
   }
 
   const reportTypeDescriptions = {
