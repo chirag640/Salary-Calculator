@@ -15,6 +15,27 @@ export default function ProfilePage() {
 
   const [name, setName] = useState("")
   const [email, setEmail] = useState("")
+  const [csrfToken, setCsrfToken] = useState<string | null>(null)
+
+  // CSRF helpers
+  function readCookie(name: string): string | null {
+    if (typeof document === 'undefined') return null
+    const match = document.cookie.split(/; */).find(c => c.startsWith(name + '='))
+    return match ? decodeURIComponent(match.split('=')[1]) : null
+  }
+  const ensureCsrfToken = async (): Promise<string | null> => {
+    const existing = readCookie('csrf-token')
+    if (existing) { setCsrfToken(existing); return existing }
+    try {
+      const res = await fetch('/api/csrf', { method: 'GET', cache: 'no-store', credentials: 'same-origin' })
+      if (res.ok) {
+        const data = await res.json()
+        setCsrfToken(data.csrfToken)
+        return data.csrfToken
+      }
+    } catch {}
+    return null
+  }
   const [username, setUsername] = useState("")
   const [phone, setPhone] = useState("")
   const [hoursPerDay, setHoursPerDay] = useState<number>(8)
@@ -36,26 +57,26 @@ export default function ProfilePage() {
   useEffect(() => {
     const load = async () => {
       try {
-        const res = await fetch("/api/profile")
+        const res = await fetch('/api/profile', { credentials: 'same-origin' })
         if (res.ok) {
           const data: ProfileResponse = await res.json()
           setProfile(data)
           setName(data.name)
-          setUsername(data.username || "")
+          setUsername(data.username || '')
           setEmail(data.email)
-          setPhone(data.contact?.phone || "")
+          setPhone(data.contact?.phone || '')
           setHoursPerDay(data.workingConfig?.hoursPerDay ?? 8)
           setDaysPerMonth(data.workingConfig?.daysPerMonth ?? 22)
           setOtEnabled(!!data.overtime?.enabled)
           setOtThreshold(data.overtime?.thresholdHoursPerDay ?? 8)
           setOtMultiplier(data.overtime?.multiplier ?? 1.5)
-          // Prefill current salary from latest salaryHistory
           if (data.salaryHistory && data.salaryHistory.length > 0) {
             const latest = data.salaryHistory.slice().sort((a, b) => a.effectiveFrom.localeCompare(b.effectiveFrom)).at(-1)!
             setCurrentSalary(latest.amount)
             setCurrentSalaryType(latest.salaryType)
           }
         }
+        await ensureCsrfToken()
       } finally {
         setLoading(false)
       }
@@ -66,9 +87,11 @@ export default function ProfilePage() {
   const saveProfile = async () => {
     setSaving(true)
     try {
-      await fetch("/api/profile", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
+      const token = csrfToken || await ensureCsrfToken()
+      await fetch('/api/profile', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', ...(token ? { 'x-csrf-token': token } : {}) },
+        credentials: 'same-origin',
         body: JSON.stringify({
           name,
           username,
@@ -86,18 +109,19 @@ export default function ProfilePage() {
 
   const addIncrement = async () => {
     if (!effectiveFrom || salaryAmount <= 0) return
-    const res = await fetch("/api/profile/increment", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
+    const token = csrfToken || await ensureCsrfToken()
+    const res = await fetch('/api/profile/increment', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(token ? { 'x-csrf-token': token } : {}) },
+      credentials: 'same-origin',
       body: JSON.stringify({ salaryType, amount: salaryAmount, effectiveFrom, working: { hoursPerDay, daysPerMonth }, note }),
     })
     if (res.ok) {
-      // refresh
-      const prof = await (await fetch("/api/profile")).json()
+      const prof = await (await fetch('/api/profile', { credentials: 'same-origin' })).json()
       setProfile(prof)
       setSalaryAmount(0)
-      setEffectiveFrom("")
-      setNote("")
+      setEffectiveFrom('')
+      setNote('')
     }
   }
 
@@ -120,9 +144,11 @@ export default function ProfilePage() {
     if (estimatedHourly == null) return
     setSaving(true)
     try {
-      await fetch("/api/profile", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
+      const token = csrfToken || await ensureCsrfToken()
+      await fetch('/api/profile', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', ...(token ? { 'x-csrf-token': token } : {}) },
+        credentials: 'same-origin',
         body: JSON.stringify({ defaultHourlyRate: estimatedHourly }),
       })
     } finally {
@@ -229,13 +255,15 @@ export default function ProfilePage() {
                 if (currentSalary <= 0) return
                 // use today's date as effectiveFrom for quick set
                 const today = new Date().toISOString().slice(0, 10)
-                const res = await fetch("/api/profile/increment", {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({ salaryType: currentSalaryType, amount: currentSalary, effectiveFrom: today, working: { hoursPerDay, daysPerMonth }, note: "Set via Current Salary" }),
+                const token = csrfToken || await ensureCsrfToken()
+                const res = await fetch('/api/profile/increment', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json', ...(token ? { 'x-csrf-token': token } : {}) },
+                  credentials: 'same-origin',
+                  body: JSON.stringify({ salaryType: currentSalaryType, amount: currentSalary, effectiveFrom: today, working: { hoursPerDay, daysPerMonth }, note: 'Set via Current Salary' }),
                 })
                 if (res.ok) {
-                  const prof = await (await fetch("/api/profile")).json()
+                  const prof = await (await fetch('/api/profile', { credentials: 'same-origin' })).json()
                   setProfile(prof)
                 }
               }}>Set Current Salary</Button>
