@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import type { ProfileResponse, SalaryRecord, SalaryType } from "@/lib/types"
 import { useCsrfToken } from "@/hooks/use-csrf"
+import { useFetchWithCsrf } from "@/hooks/use-fetch-with-csrf"
 import { useToast } from "@/hooks/use-toast"
 
 export default function ProfilePage() {
@@ -19,6 +20,7 @@ export default function ProfilePage() {
   const [email, setEmail] = useState("")
   const { csrfToken, ensureCsrfToken } = useCsrfToken()
   const { toast } = useToast()
+  const { fetchWithCsrf } = useFetchWithCsrf()
   const [username, setUsername] = useState("")
   const [phone, setPhone] = useState("")
   const [hoursPerDay, setHoursPerDay] = useState<number>(8)
@@ -40,7 +42,7 @@ export default function ProfilePage() {
   useEffect(() => {
     const load = async () => {
       try {
-        const res = await fetch('/api/profile', { credentials: 'same-origin' })
+        const res = await fetchWithCsrf('/api/profile', { method: 'GET' })
         if (res.ok) {
           const data: ProfileResponse = await res.json()
           setProfile(data)
@@ -70,11 +72,8 @@ export default function ProfilePage() {
   const saveProfile = async () => {
     setSaving(true)
     try {
-      const token = csrfToken || await ensureCsrfToken()
-      const res = await fetch('/api/profile', {
+      const res = await fetchWithCsrf('/api/profile', {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json', ...(token ? { 'x-csrf-token': token } : {}) },
-        credentials: 'same-origin',
         body: JSON.stringify({
           name,
           username,
@@ -98,16 +97,13 @@ export default function ProfilePage() {
 
   const addIncrement = async () => {
     if (!effectiveFrom || salaryAmount <= 0) return
-    const token = csrfToken || await ensureCsrfToken()
     try {
-      const res = await fetch('/api/profile/increment', {
+      const res = await fetchWithCsrf('/api/profile/increment', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...(token ? { 'x-csrf-token': token } : {}) },
-        credentials: 'same-origin',
         body: JSON.stringify({ salaryType, amount: salaryAmount, effectiveFrom, working: { hoursPerDay, daysPerMonth }, note }),
       })
       if (res.ok) {
-        const prof = await (await fetch('/api/profile', { credentials: 'same-origin' })).json()
+        const prof = await (await fetchWithCsrf('/api/profile', { method: 'GET' })).json()
         setProfile(prof)
         setSalaryAmount(0)
         setEffectiveFrom('')
@@ -141,13 +137,7 @@ export default function ProfilePage() {
     if (estimatedHourly == null) return
     setSaving(true)
     try {
-      const token = csrfToken || await ensureCsrfToken()
-      const res = await fetch('/api/profile', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json', ...(token ? { 'x-csrf-token': token } : {}) },
-        credentials: 'same-origin',
-        body: JSON.stringify({ defaultHourlyRate: estimatedHourly }),
-      })
+      const res = await fetchWithCsrf('/api/profile', { method: 'PUT', body: JSON.stringify({ defaultHourlyRate: estimatedHourly }) })
       if (res.ok) {
         toast({ title: 'Default hourly rate set', description: `Now ${estimatedHourly}` })
       } else {
@@ -257,16 +247,10 @@ export default function ProfilePage() {
                 if (currentSalary <= 0) return
                 // use today's date as effectiveFrom for quick set
                 const today = new Date().toISOString().slice(0, 10)
-                const token = csrfToken || await ensureCsrfToken()
                 try {
-                  const res = await fetch('/api/profile/increment', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json', ...(token ? { 'x-csrf-token': token } : {}) },
-                    credentials: 'same-origin',
-                    body: JSON.stringify({ salaryType: currentSalaryType, amount: currentSalary, effectiveFrom: today, working: { hoursPerDay, daysPerMonth }, note: 'Set via Current Salary' }),
-                  })
+                  const res = await fetchWithCsrf('/api/profile/increment', { method: 'POST', body: JSON.stringify({ salaryType: currentSalaryType, amount: currentSalary, effectiveFrom: today, working: { hoursPerDay, daysPerMonth }, note: 'Set via Current Salary' }) })
                   if (res.ok) {
-                    const prof = await (await fetch('/api/profile', { credentials: 'same-origin' })).json()
+                    const prof = await (await fetchWithCsrf('/api/profile', { method: 'GET' })).json()
                     setProfile(prof)
                     toast({ title: 'Current salary recorded', description: 'Added to salary history.' })
                   } else {

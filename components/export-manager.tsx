@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Download, FileSpreadsheet } from "lucide-react"
 import { useCsrfToken } from "@/hooks/use-csrf"
+import { useFetchWithCsrf } from "@/hooks/use-fetch-with-csrf"
 
 interface ExportData {
   startDate: string
@@ -31,6 +32,7 @@ export function ExportManager() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
   const { csrfToken, ensureCsrfToken, refreshCsrfToken } = useCsrfToken()
+  const { fetchWithCsrf } = useFetchWithCsrf()
 
   useEffect(() => {
     // Preload a CSRF token on mount
@@ -51,13 +53,8 @@ export function ExportManager() {
     setError("")
 
     try {
-      const token = csrfToken || (await ensureCsrfToken())
-      const response = await fetch("/api/export", {
+      const response = await fetchWithCsrf("/api/export", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(token ? { "x-csrf-token": token } : {}),
-        },
         body: JSON.stringify(exportData),
       })
 
@@ -76,16 +73,9 @@ export function ExportManager() {
         document.body.removeChild(a)
       } else if (response.status === 403) {
         // Attempt one silent retry if CSRF failed (maybe token rotated)
-  const refreshed = await refreshCsrfToken()
+        const refreshed = await refreshCsrfToken()
         if (refreshed) {
-          const retry = await fetch("/api/export", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              "x-csrf-token": refreshed,
-            },
-            body: JSON.stringify(exportData),
-          })
+          const retry = await fetchWithCsrf("/api/export", { method: "POST", body: JSON.stringify(exportData), retryOn403: false })
           if (retry.ok) {
             const blob = await retry.blob()
             const url = window.URL.createObjectURL(blob)
