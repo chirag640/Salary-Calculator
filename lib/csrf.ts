@@ -8,14 +8,40 @@ export function generateCsrfToken(): string {
   return randomBytes(16).toString("hex")
 }
 
-export function validateCsrf(request: Request): boolean {
+/**
+ * Validate a double-submit CSRF token.
+ * Accepts either a standard Request or NextRequest (server) instance.
+ * Tries to read the cookie via NextRequest.cookies when available, otherwise
+ * falls back to parsing the Cookie header. Comparison is strict equality.
+ */
+export function validateCsrf(request: Request | any): boolean {
   // Only enforce for state-changing methods (POST, PUT, DELETE, PATCH)
   if (!/^(POST|PUT|DELETE|PATCH)$/i.test(request.method)) return true
   const header = request.headers.get("x-csrf-token")
-  // On server routes you can read cookie via request.headers.get('cookie') manually if needed.
-  const cookieHeader = request.headers.get("cookie") || ""
-  const cookieMatch = cookieHeader.split(/; */).find((c) => c.startsWith("csrf-token="))
-  if (!cookieMatch) return false
-  const cookieToken = cookieMatch.split("=")[1]
-  return !!header && header === cookieToken
+
+  // Prefer NextRequest.cookies if present (access to parsed cookies on server)
+  let cookieToken: string | undefined
+  try {
+    // NextRequest in Next.js exposes a `cookies` getter with .get(name)
+    if (request && typeof request.cookies === "function") {
+      // Some runtimes expose cookies() as a function that returns a map-like object
+      const store = request.cookies()
+      cookieToken = store?.get?.("csrf-token")?.value
+    } else if (request && request.cookies && typeof request.cookies.get === "function") {
+      // NextRequest object in some environments
+      cookieToken = request.cookies.get("csrf-token")?.value
+    }
+  } catch (e) {
+    // ignore and fallback to header parsing
+  }
+
+  if (!cookieToken) {
+    const cookieHeader = (request.headers && request.headers.get("cookie")) || ""
+  const cookieMatch = cookieHeader.split(/; */).find((c: string) => c.startsWith("csrf-token="))
+    if (!cookieMatch) return false
+    // Support tokens that may include '=' by joining the remainder
+    cookieToken = decodeURIComponent(cookieMatch.split("=").slice(1).join("="))
+  }
+
+  return !!header && !!cookieToken && header === cookieToken
 }

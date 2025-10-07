@@ -189,12 +189,25 @@ export default function TimeTracker() {
             description: `${created.totalHours?.toFixed?.(2) || "0"}h on ${created.date}`,
           })
         } else {
-          await fetchEntries()
-          toast({
-            title: "Could not create entry",
-            description: "Please review your input and try again.",
-            variant: "destructive",
-          })
+            // Try to read server error details for better feedback
+            let body: any = null
+            try { body = await response.json() } catch {}
+            await fetchEntries()
+            // If server returned an overlapping entry, provide clear message
+            if (body?.overlap) {
+              const ov = body.overlap
+              toast({
+                title: `Could not create entry: Overlaps existing entry (${ov.timeIn} - ${ov.timeOut})`,
+                description: ov.workDescription || `Existing: ${ov.totalHours}h`,
+                variant: "destructive",
+              })
+            } else {
+              toast({
+                title: body?.error ? `Could not create entry: ${body.error}` : "Could not create entry",
+                description: body?.details ? JSON.stringify(body.details) : (body?.issues ? JSON.stringify(body.issues) : "Please review your input and try again."),
+                variant: "destructive",
+              })
+            }
         }
       }
     } catch (error) {

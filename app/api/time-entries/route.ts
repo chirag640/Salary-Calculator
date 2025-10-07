@@ -92,13 +92,37 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Rate limit exceeded" }, { status: 429, headers: { "Retry-After": String(rl.retryAfter) } })
     }
 
+    // CSRF validation - provide diagnostic details if it fails to help debugging
+    const headerPresent = !!request.headers.get("x-csrf-token")
+    let cookiePresent = false
+    try {
+      if (request && request.cookies) {
+        // request.cookies may be a map-like object with .get(name) or a Cookies instance
+        const getFn: any = (request.cookies.get && request.cookies.get.bind(request.cookies)) || undefined
+        if (typeof getFn === "function") {
+          cookiePresent = !!getFn("csrf-token")?.value
+        } else if (typeof request.cookies === "object" && typeof (request.cookies as any).get === "function") {
+          cookiePresent = !!(request.cookies as any).get("csrf-token")?.value
+        }
+      }
+    } catch (e) {
+      // ignore
+    }
     if (!validateCsrf(request)) {
-      return NextResponse.json({ error: "Invalid CSRF token" }, { status: 403 })
+      // Return details (without echoing token values) so client can show helpful message
+      return NextResponse.json({ error: "Invalid CSRF token", details: { headerPresent, cookiePresent } }, { status: 403 })
     }
 
-    const raw = await request.json()
+    let raw: any
+    try {
+      raw = await request.json()
+    } catch (e) {
+      console.error("Failed to parse JSON body for time entry create")
+      return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 })
+    }
     const parse = createTimeEntrySchema.safeParse(raw)
     if (!parse.success) {
+      console.warn("Time entry validation failed:", parse.error.format())
       return NextResponse.json({ error: "Validation failed", issues: parse.error.format() }, { status: 400 })
     }
   const { date, timeIn, timeOut, breakMinutes, workDescription, client, project, leave, totalHours: providedHours, isHolidayWork, holidayCategory, isHolidayExtra } = parse.data
@@ -114,7 +138,17 @@ export async function POST(request: NextRequest) {
         ],
       })
       if (overlap) {
-        return NextResponse.json({ error: "Overlapping time entry exists" }, { status: 409 })
+        console.warn("Overlapping entry detected for user", userId, "date", date, "overlapId", overlap._id)
+        // Return a minimal subset of the overlapping entry so the client can show helpful context
+        const overlapInfo = {
+          _id: overlap._id?.toString?.() || overlap._id,
+          timeIn: overlap.timeIn || "",
+          timeOut: overlap.timeOut || "",
+          totalHours: overlap.totalHours || 0,
+          workDescription: overlap.workDescription || "",
+          isHolidayWork: !!overlap.isHolidayWork,
+        }
+        return NextResponse.json({ error: "Overlapping time entry exists", overlap: overlapInfo }, { status: 409 })
       }
     }
 
@@ -169,8 +203,9 @@ export async function POST(request: NextRequest) {
     }
     const result = await db.collection<TimeEntry>("timeEntries").insertOne(doc)
     return NextResponse.json({ ...doc, _id: result.insertedId.toString() })
-  } catch (error) {
-    console.error("Error creating time entry:", error)
-    return NextResponse.json({ error: "Failed to create time entry" }, { status: 500 })
-  }
+    } catch (error: any) {
+      console.error("Error creating time entry:", error)
+      const msg = error && (error.message || String(error)) ? (error.message || String(error)) : "Unknown error"
+      return NextResponse.json({ error: "Failed to create time entry", detail: msg }, { status: 500 })
+    }
 }
