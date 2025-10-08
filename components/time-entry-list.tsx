@@ -139,8 +139,8 @@ export function TimeEntryList({ entries, onEdit, onDelete }: TimeEntryListProps)
                     </CardContent>
                   </Card>
                   
-                  {/* Show timer controls for entries with active or paused timers */}
-                  {entry._id && entry.timer && (
+                  {/* Show timer controls only for entries with running or paused timers (not stopped) */}
+                  {entry._id && entry.timer && entry.timer.status !== "stopped" && (
                     <TimerControls 
                       entryId={entry._id} 
                       onTimerStop={() => {

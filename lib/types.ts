@@ -25,9 +25,11 @@ export interface TimeEntry {
 
 export interface TimerState {
   isRunning: boolean
+  status?: "running" | "paused" | "stopped" // Timer status for UI display
   startedAt?: Date // ISO timestamp when timer started
   pausedAt?: Date[] // Array of pause timestamps
   resumedAt?: Date[] // Array of resume timestamps
+  stoppedAt?: Date // When timer was stopped (cannot be resumed after this)
   lastHeartbeatAt?: Date // Last client heartbeat timestamp
   accumulatedSeconds: number // Total seconds accumulated across all sessions
   idleThresholdMinutes?: number // Configurable idle detection threshold (default 10)

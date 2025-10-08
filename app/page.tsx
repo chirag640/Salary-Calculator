@@ -425,7 +425,7 @@ export default function TimeTracker() {
         </TabsList>
 
         <TabsContent value="log" className="space-y-6">
-          {/* Quick Start Timer Button */}
+          {/* Quick Start Timer */}
           {!editingEntry && (
             <div className="flex justify-center">
               <QuickStartTimer 
@@ -438,23 +438,43 @@ export default function TimeTracker() {
                     description: "Your work timer is now running."
                   })
                 }}
+                onTimerStopped={() => {
+                  // Refresh entries when timer is stopped
+                  fetchEntries(undefined, { showDeleted })
+                  toast({
+                    title: "Timer stopped",
+                    description: "Your work session has been saved."
+                  })
+                }}
               />
             </div>
           )}
 
-          <TimeEntryForm
-            selectedDate={selectedDateString}
-            onSubmit={handleSubmit}
-            initialData={editingEntry || undefined}
-            isEditing={!!editingEntry}
-          />
+          {/* Only show regular form if not using quick start timer and not editing */}
+          {!editingEntry && !todayEntries.some(e => e.timer?.isRunning) && (
+            <TimeEntryForm
+              selectedDate={selectedDateString}
+              onSubmit={handleSubmit}
+              initialData={editingEntry || undefined}
+              isEditing={!!editingEntry}
+            />
+          )}
 
+          {/* Show form when editing */}
           {editingEntry && (
-            <div className="flex justify-center">
-              <Button variant="glass" onClick={() => setEditingEntry(null)}>
-                Cancel Edit
-              </Button>
-            </div>
+            <>
+              <TimeEntryForm
+                selectedDate={selectedDateString}
+                onSubmit={handleSubmit}
+                initialData={editingEntry}
+                isEditing={true}
+              />
+              <div className="flex justify-center">
+                <Button variant="glass" onClick={() => setEditingEntry(null)}>
+                  Cancel Edit
+                </Button>
+              </div>
+            </>
           )}
 
           {/* Today's entries */}

@@ -1,24 +1,66 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
-import { Play } from "lucide-react"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Label } from "@/components/ui/label"
+import { Textarea } from "@/components/ui/textarea"
+import { Badge } from "@/components/ui/badge"
+import { Play, Square, Clock } from "lucide-react"
 import { useCsrfToken } from "@/hooks/use-csrf"
+import { useTimer, formatTimerDisplay } from "@/hooks/use-timer"
 
 interface QuickStartTimerProps {
   selectedDate: string
   onEntryCreated: (entryId: string) => void
+  onTimerStopped?: () => void
   className?: string
 }
 
 /**
- * Quick start timer button - creates a new entry and starts timer immediately
+ * Quick start timer - creates a new entry and starts timer immediately
+ * Shows simplified form with running timer display
  */
-export function QuickStartTimer({ selectedDate, onEntryCreated, className = "" }: QuickStartTimerProps) {
+export function QuickStartTimer({ selectedDate, onEntryCreated, onTimerStopped, className = "" }: QuickStartTimerProps) {
   const [loading, setLoading] = useState(false)
+  const [activeEntryId, setActiveEntryId] = useState<string | null>(null)
+  const [hourlyRate, setHourlyRate] = useState<number>(0)
+  const [workDescription, setWorkDescription] = useState("")
   const { csrfToken, ensureCsrfToken } = useCsrfToken()
 
+  const {
+    timer,
+    elapsedSeconds,
+    isRunning,
+    stopTimer: stopTimerHook,
+    loading: timerLoading
+  } = useTimer({
+    entryId: activeEntryId || "",
+    autoFetch: !!activeEntryId
+  })
+
+  // Fetch hourly rate
+  useEffect(() => {
+    const fetchRate = async () => {
+      try {
+        const res = await fetch(`/api/profile/hourly-rate?date=${selectedDate}`)
+        if (res.ok) {
+          const data = await res.json()
+          setHourlyRate(data.hourlyRate || 0)
+        }
+      } catch (error) {
+        console.error("Failed to fetch hourly rate:", error)
+      }
+    }
+    fetchRate()
+  }, [selectedDate])
+
   const handleQuickStart = async () => {
+    if (hourlyRate <= 0) {
+      alert("Please set your hourly rate in Profile first")
+      return
+    }
+
     setLoading(true)
     try {
       const token = csrfToken || await ensureCsrfToken()
@@ -36,8 +78,9 @@ export function QuickStartTimer({ selectedDate, onEntryCreated, className = "" }
           timeIn: "",
           timeOut: "",
           breakMinutes: 0,
-          workDescription: "Timer entry",
-          totalHours: 0
+          workDescription: workDescription || "Quick timer entry",
+          totalHours: 0,
+          hourlyRate: hourlyRate
         })
       })
 
@@ -67,6 +110,7 @@ export function QuickStartTimer({ selectedDate, onEntryCreated, className = "" }
         throw new Error("Failed to start timer")
       }
 
+      setActiveEntryId(entryId)
       onEntryCreated(entryId)
     } catch (error) {
       console.error("Error quick starting timer:", error)
@@ -76,10 +120,87 @@ export function QuickStartTimer({ selectedDate, onEntryCreated, className = "" }
     }
   }
 
+  const handleStopTimer = async () => {
+    try {
+      await stopTimerHook()
+      setActiveEntryId(null)
+      setWorkDescription("")
+      if (onTimerStopped) {
+        onTimerStopped()
+      }
+    } catch (error) {
+      console.error("Failed to stop timer:", error)
+      alert("Failed to stop timer")
+    }
+  }
+
+  // Show running timer interface
+  if (activeEntryId && isRunning) {
+    return (
+      <Card className={`border-green-500 ${className}`}>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Clock className="h-5 w-5 text-green-500 animate-pulse" />
+            Timer Running
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {/* Timer Display */}
+          <div className="flex items-center justify-center">
+            <div className="font-mono text-4xl font-bold text-green-600">
+              {formatTimerDisplay(elapsedSeconds)}
+            </div>
+          </div>
+
+          {/* Hourly Rate Display */}
+          <div>
+            <Label>Hourly Rate</Label>
+            <div className="p-3 rounded-lg bg-muted text-lg font-semibold">
+              ${hourlyRate.toFixed(2)} / hr
+            </div>
+          </div>
+
+          {/* Work Description */}
+          <div>
+            <Label htmlFor="quick-work-desc">Work Description (Optional)</Label>
+            <Textarea
+              id="quick-work-desc"
+              value={workDescription}
+              onChange={(e) => setWorkDescription(e.target.value)}
+              placeholder="What are you working on?"
+              rows={3}
+            />
+          </div>
+
+          {/* Current Earnings */}
+          <div className="bg-green-50 dark:bg-green-950/30 p-4 rounded-lg">
+            <div className="text-sm text-muted-foreground">Current Earnings</div>
+            <div className="text-2xl font-bold text-green-600">
+              ${((elapsedSeconds / 3600) * hourlyRate).toFixed(2)}
+            </div>
+          </div>
+
+          {/* Stop Button */}
+          <Button
+            onClick={handleStopTimer}
+            disabled={timerLoading}
+            variant="destructive"
+            className="w-full gap-2"
+            size="lg"
+          >
+            <Square className="h-5 w-5" />
+            Stop Timer
+          </Button>
+        </CardContent>
+      </Card>
+    )
+  }
+
+  // Show start button when no active timer
   return (
     <Button
       onClick={handleQuickStart}
-      disabled={loading}
+      disabled={loading || hourlyRate <= 0}
       className={`gap-2 ${className}`}
       size="lg"
     >

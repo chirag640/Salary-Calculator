@@ -186,7 +186,7 @@ export function TimerControls({ entryId, onTimerStop, className = "" }: TimerCon
                 </Button>
               )}
               
-              {!isRunning && elapsedSeconds > 0 && (
+              {!isRunning && elapsedSeconds > 0 && timer?.status === "paused" && (
                 <Button 
                   onClick={handleResume} 
                   size="sm" 
@@ -198,7 +198,14 @@ export function TimerControls({ entryId, onTimerStop, className = "" }: TimerCon
                 </Button>
               )}
               
-              {elapsedSeconds > 0 && (
+              {!isRunning && elapsedSeconds > 0 && timer?.status === "stopped" && (
+                <Badge variant="secondary" className="gap-1">
+                  <Clock className="h-3 w-3" />
+                  Stopped
+                </Badge>
+              )}
+              
+              {(isRunning || timer?.status === "paused") && (
                 <Button 
                   onClick={handleStop} 
                   size="sm" 

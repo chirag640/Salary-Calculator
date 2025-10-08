@@ -181,160 +181,229 @@ export function TimeEntryForm({ selectedDate, onSubmit, initialData, isEditing =
 
   return (
     <div className="space-y-4">
-      {/* Timer Controls - only show for new entries (not when editing) */}
-      {!isEditing && initialData?._id && (
-        <TimerControls 
-          entryId={initialData._id}
-          onTimerStop={() => {
-            // When timer stops, it auto-fills the form with calculated time
-            // Could trigger a refresh or update here
-          }}
-        />
-      )}
-
   <Card className="hover:translate-y-[-1px] transition-transform">
       <CardHeader>
-        <CardTitle>{isEditing ? "Edit Entry" : "Log Entry"}</CardTitle>
+        <CardTitle className="text-2xl">{isEditing ? "✏️ Edit Entry" : "📝 Manual Log Entry"}</CardTitle>
+        {!isEditing && (
+          <p className="text-sm text-muted-foreground mt-2">
+            Manually log your work hours with specific times. Use Quick Start Timer above for real-time tracking.
+          </p>
+        )}
       </CardHeader>
       <CardContent>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="flex flex-col gap-2">
-            <div className="flex items-center space-x-2">
-              <Checkbox id="isLeave" checked={isLeave} onCheckedChange={(checked) => { setIsLeave(!!checked); if (checked) { setIsHolidayWork(false) } }} />
-              <Label htmlFor="isLeave">This is a leave day</Label>
-            </div>
-            <div className="flex flex-col gap-2">
+        <form onSubmit={handleSubmit} className="space-y-6">
+          {/* Entry Type Selection */}
+          <div className="bg-muted/50 p-4 rounded-lg space-y-3">
+            <h3 className="font-semibold text-sm">Entry Type</h3>
+            <div className="flex flex-col gap-3">
               <div className="flex items-center space-x-2">
-                <Checkbox id="isHolidayWork" checked={isHolidayWork} onCheckedChange={(checked) => {
-                  const val = !!checked
-                  setIsHolidayWork(val)
-                  if (val) {
-                    setIsLeave(false)
-                  } else {
-                    setIsHolidayExtra(false)
-                    setTimeIn("")
-                    setTimeOut("")
-                  }
-                }} />
-                <Label htmlFor="isHolidayWork">Holiday / weekend work (base 9h)</Label>
+                <Checkbox 
+                  id="isLeave" 
+                  checked={isLeave} 
+                  onCheckedChange={(checked) => { 
+                    setIsLeave(!!checked); 
+                    if (checked) { setIsHolidayWork(false) } 
+                  }} 
+                />
+                <Label htmlFor="isLeave" className="cursor-pointer">
+                  🏖️ This is a leave/off day
+                </Label>
+              </div>
+              
+              <div className="flex flex-col gap-2">
+                <div className="flex items-center space-x-2">
+                  <Checkbox 
+                    id="isHolidayWork" 
+                    checked={isHolidayWork} 
+                    onCheckedChange={(checked) => {
+                      const val = !!checked
+                      setIsHolidayWork(val)
+                      if (val) {
+                        setIsLeave(false)
+                      } else {
+                        setIsHolidayExtra(false)
+                        setTimeIn("")
+                        setTimeOut("")
+                      }
+                    }} 
+                  />
+                  <Label htmlFor="isHolidayWork" className="cursor-pointer">
+                    🎉 Holiday/weekend work (automatic 9h base pay)
+                  </Label>
+                </div>
+                
                 {isHolidayWork && (
-                  <div className="flex items-center gap-2">
+                  <div className="ml-6 space-y-2">
                     <Select value={holidayCategory} onValueChange={(v) => setHolidayCategory(v as any)}>
-                      <SelectTrigger className="w-40"><SelectValue placeholder="Category" /></SelectTrigger>
+                      <SelectTrigger className="w-48">
+                        <SelectValue placeholder="Select category" />
+                      </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="sunday">Sunday</SelectItem>
                         <SelectItem value="saturday">Saturday</SelectItem>
                         <SelectItem value="other">Other Holiday</SelectItem>
                       </SelectContent>
                     </Select>
+                    
+                    <div className="flex items-center space-x-2">
+                      <Checkbox 
+                        id="isHolidayExtra" 
+                        checked={isHolidayExtra} 
+                        onCheckedChange={(c) => {
+                          const val = !!c
+                          setIsHolidayExtra(val)
+                          if (!val) { setTimeIn(""); setTimeOut("") }
+                        }} 
+                      />
+                      <Label htmlFor="isHolidayExtra" className="text-sm cursor-pointer">
+                        Add extra hours beyond base 9h
+                      </Label>
+                    </div>
+                    
+                    {!isHolidayExtra && (
+                      <p className="text-xs text-muted-foreground">
+                        💡 You'll automatically get paid for 9 hours
+                      </p>
+                    )}
                   </div>
                 )}
               </div>
-              {isHolidayWork && (
-                <div className="flex items-center gap-3 pl-6">
-                  <Checkbox id="isHolidayExtra" checked={isHolidayExtra} onCheckedChange={(c) => {
-                    const val = !!c
-                    setIsHolidayExtra(val)
-                    if (!val) { setTimeIn(""); setTimeOut("") }
-                  }} />
-                  <Label htmlFor="isHolidayExtra">Add extra hours via time range</Label>
-                </div>
-              )}
-              {isHolidayWork && !isHolidayExtra && (
-                <div className="text-xs text-muted-foreground pl-6">Leave time fields empty to log only the base paid 9 hours.</div>
-              )}
-              {isHolidayWork && isHolidayExtra && (
-                <div className="text-xs text-muted-foreground pl-6">Enter Time In / Time Out for extra hours above the base 9.</div>
-              )}
             </div>
           </div>
-
-          {/* Client and Project fields removed per requirements */}
 
           {isLeave ? (
             <>
               <div>
-                <Label htmlFor="leaveType">Leave Type</Label>
+                <Label htmlFor="leaveType" className="text-base">Leave Type</Label>
                 <Select value={leaveType} onValueChange={(value) => setLeaveType(value as LeaveType)}>
-                  <SelectTrigger>
+                  <SelectTrigger className="h-12">
                     <SelectValue placeholder="Select leave type" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="Sick">Sick Leave</SelectItem>
-                    <SelectItem value="Vacation">Vacation</SelectItem>
-                    <SelectItem value="Personal">Personal Leave</SelectItem>
-                    <SelectItem value="Holiday">Holiday</SelectItem>
-                    <SelectItem value="Other">Other</SelectItem>
+                    <SelectItem value="Sick">🤒 Sick Leave</SelectItem>
+                    <SelectItem value="Vacation">🏖️ Vacation</SelectItem>
+                    <SelectItem value="Personal">👤 Personal Leave</SelectItem>
+                    <SelectItem value="Holiday">🎉 Holiday</SelectItem>
+                    <SelectItem value="Other">📋 Other</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
 
               <div>
-                <Label htmlFor="leaveReason">Reason (Optional)</Label>
+                <Label htmlFor="leaveReason" className="text-base">Reason (Optional)</Label>
                 <Textarea
                   id="leaveReason"
                   value={leaveReason}
                   onChange={(e) => setLeaveReason(e.target.value)}
                   placeholder="Optional reason for leave"
                   rows={3}
+                  className="resize-none"
                 />
               </div>
             </>
           ) : (
             <>
+              {/* Time Entry Fields */}
               {!isHolidayWork && (
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="timeIn">Time In</Label>
-                    <Input id="timeIn" type="time" value={timeIn} onChange={(e) => setTimeIn(e.target.value)} required />
-                  </div>
-                  <div>
-                    <Label htmlFor="timeOut">Time Out</Label>
-                    <Input id="timeOut" type="time" value={timeOut} onChange={(e) => setTimeOut(e.target.value)} required />
+                <div>
+                  <Label className="text-base mb-2 block">⏰ Work Hours</Label>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label htmlFor="timeIn" className="text-sm text-muted-foreground">Start Time</Label>
+                      <Input 
+                        id="timeIn" 
+                        type="time" 
+                        value={timeIn} 
+                        onChange={(e) => setTimeIn(e.target.value)} 
+                        required 
+                        className="h-12 text-lg"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="timeOut" className="text-sm text-muted-foreground">End Time</Label>
+                      <Input 
+                        id="timeOut" 
+                        type="time" 
+                        value={timeOut} 
+                        onChange={(e) => setTimeOut(e.target.value)} 
+                        required 
+                        className="h-12 text-lg"
+                      />
+                    </div>
                   </div>
                 </div>
               )}
+              
               {isHolidayWork && isHolidayExtra && (
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="timeIn">Time In (extra)</Label>
-                    <Input id="holidayTimeIn" type="time" value={timeIn} onChange={(e) => setTimeIn(e.target.value)} required={isHolidayExtra} />
-                  </div>
-                  <div>
-                    <Label htmlFor="timeOut">Time Out (extra)</Label>
-                    <Input id="holidayTimeOut" type="time" value={timeOut} onChange={(e) => setTimeOut(e.target.value)} required={isHolidayExtra} />
+                <div>
+                  <Label className="text-base mb-2 block">⏰ Extra Hours (beyond base 9h)</Label>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label htmlFor="holidayTimeIn" className="text-sm text-muted-foreground">Start Time</Label>
+                      <Input 
+                        id="holidayTimeIn" 
+                        type="time" 
+                        value={timeIn} 
+                        onChange={(e) => setTimeIn(e.target.value)} 
+                        required={isHolidayExtra} 
+                        className="h-12 text-lg"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="holidayTimeOut" className="text-sm text-muted-foreground">End Time</Label>
+                      <Input 
+                        id="holidayTimeOut" 
+                        type="time" 
+                        value={timeOut} 
+                        onChange={(e) => setTimeOut(e.target.value)} 
+                        required={isHolidayExtra} 
+                        className="h-12 text-lg"
+                      />
+                    </div>
                   </div>
                 </div>
               )}
 
-              {/* Break and manual hourly rate removed; hourly rate auto-fetched from profile */}
+              {/* Hourly Rate Display */}
               <div>
-                <Label>Hourly Rate (auto)</Label>
-                <div className="p-2 rounded bg-muted">${hourlyRate.toFixed(2)} / hr</div>
+                <Label className="text-base">💰 Hourly Rate</Label>
+                <div className="p-3 rounded-lg bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-950/30 dark:to-emerald-950/30 border border-green-200 dark:border-green-800">
+                  <div className="text-2xl font-bold text-green-700 dark:text-green-400">
+                    ${hourlyRate.toFixed(2)} <span className="text-sm font-normal text-muted-foreground">per hour</span>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Automatically loaded from your profile
+                  </p>
+                </div>
               </div>
 
+              {/* Work Description */}
               <div>
-                <Label htmlFor="workDescription">Work Description</Label>
+                <Label htmlFor="workDescription" className="text-base">📝 What did you work on?</Label>
                 <Textarea
                   id="workDescription"
                   value={workDescription}
                   onChange={(e) => setWorkDescription(e.target.value)}
-                  placeholder="What did you work on today?"
-                  rows={3}
+                  placeholder="Describe your work for today..."
+                  rows={4}
+                  className="resize-none"
                 />
               </div>
 
               {/* Live calculation display */}
               {calculation.totalHours > 0 && (
-                <div className="bg-muted p-4 rounded-lg">
-                  <div className="grid grid-cols-2 gap-4 text-sm">
+                <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/30 dark:to-indigo-950/30 p-6 rounded-lg border-2 border-blue-200 dark:border-blue-800">
+                  <h3 className="text-sm font-semibold text-muted-foreground mb-3">Summary</h3>
+                  <div className="grid grid-cols-2 gap-6">
                     <div>
-                      <span className="font-medium">Total Hours:</span>
-                      <div className="text-lg font-bold text-primary">{formatTime(calculation.totalHours)}</div>
+                      <div className="text-sm text-muted-foreground mb-1">Total Hours</div>
+                      <div className="text-3xl font-bold text-blue-600 dark:text-blue-400">
+                        {formatTime(calculation.totalHours)}
+                      </div>
                     </div>
                     <div>
-                      <span className="font-medium">Total Earnings:</span>
-                      <div className="text-lg font-bold text-green-600">
+                      <div className="text-sm text-muted-foreground mb-1">Total Earnings</div>
+                      <div className="text-3xl font-bold text-green-600 dark:text-green-400">
                         {formatCurrency(calculation.totalEarnings)}
                       </div>
                     </div>
@@ -344,8 +413,8 @@ export function TimeEntryForm({ selectedDate, onSubmit, initialData, isEditing =
             </>
           )}
 
-          <Button type="submit" disabled={isSubmitting} className="w-full" variant="glass">
-            {isSubmitting ? "Saving..." : isEditing ? "Update Entry" : "Save Entry"}
+          <Button type="submit" disabled={isSubmitting} className="w-full h-12 text-lg" variant="glass">
+            {isSubmitting ? "💾 Saving..." : isEditing ? "✅ Update Entry" : "💾 Save Entry"}
           </Button>
         </form>
       </CardContent>
