@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Checkbox } from "@/components/ui/checkbox"
 import { calculateTimeWorked, formatTime, formatCurrency } from "@/lib/time-utils"
 import type { TimeEntry, LeaveType } from "@/lib/types"
+import { TimerControls } from "@/components/timer-controls"
 
 interface TimeEntryFormProps {
   selectedDate: string
@@ -179,6 +180,18 @@ export function TimeEntryForm({ selectedDate, onSubmit, initialData, isEditing =
   }
 
   return (
+    <div className="space-y-4">
+      {/* Timer Controls - only show for new entries (not when editing) */}
+      {!isEditing && initialData?._id && (
+        <TimerControls 
+          entryId={initialData._id}
+          onTimerStop={() => {
+            // When timer stops, it auto-fills the form with calculated time
+            // Could trigger a refresh or update here
+          }}
+        />
+      )}
+
   <Card className="hover:translate-y-[-1px] transition-transform">
       <CardHeader>
         <CardTitle>{isEditing ? "Edit Entry" : "Log Entry"}</CardTitle>
@@ -337,5 +350,6 @@ export function TimeEntryForm({ selectedDate, onSubmit, initialData, isEditing =
         </form>
       </CardContent>
     </Card>
+    </div>
   )
 }

@@ -8,6 +8,7 @@ import { SummaryDashboard } from "@/components/summary-dashboard"
 import { InvoiceGenerator } from "@/components/invoice-generator"
 import { ExportManager } from "@/components/export-manager"
 import { AIReportGenerator } from "@/components/ai-report-generator"
+import { QuickStartTimer } from "@/components/quick-start-timer"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -424,6 +425,23 @@ export default function TimeTracker() {
         </TabsList>
 
         <TabsContent value="log" className="space-y-6">
+          {/* Quick Start Timer Button */}
+          {!editingEntry && (
+            <div className="flex justify-center">
+              <QuickStartTimer 
+                selectedDate={selectedDateString}
+                onEntryCreated={(entryId) => {
+                  // Refresh entries to show the new timer
+                  fetchEntries(undefined, { showDeleted })
+                  toast({
+                    title: "Timer started!",
+                    description: "Your work timer is now running."
+                  })
+                }}
+              />
+            </div>
+          )}
+
           <TimeEntryForm
             selectedDate={selectedDateString}
             onSubmit={handleSubmit}

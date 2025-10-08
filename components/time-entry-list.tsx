@@ -6,7 +6,8 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { formatTime, formatCurrency } from "@/lib/time-utils"
 import type { TimeEntry } from "@/lib/types"
-import { Pencil, Trash2, Calendar } from "lucide-react"
+import { Pencil, Trash2, Calendar, Clock } from "lucide-react"
+import { TimerControls } from "@/components/timer-controls"
 
 interface TimeEntryListProps {
   entries: TimeEntry[]
@@ -84,52 +85,71 @@ export function TimeEntryList({ entries, onEdit, onDelete }: TimeEntryListProps)
 
             <div className="space-y-3">
               {dateEntries.map((entry) => (
-                <Card key={entry._id} className={`hover:translate-y-[-1px] transition-transform ${entry.deletedAt ? 'border-red-400/60 bg-red-50 dark:bg-red-950/30' : ''}`}>
-                  <CardContent className="p-4">
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-4 mb-2">
-                          <span className="font-medium">
-                            {entry.timeIn} - {entry.timeOut}
-                          </span>
-                          {/* Break minutes no longer tracked; hourly rate shown for reference */}
-                          <Badge variant="secondary">${entry.hourlyRate}/hr</Badge>
-                          {entry.deletedAt && <Badge variant="destructive">Deleted</Badge>}
-                          {entry.isHolidayWork && (
-                            <Badge variant="outline" className="border-amber-500 text-amber-600 dark:text-amber-400">
-                              {entry.holidayCategory === 'sunday' && 'Sunday Work'}
-                              {entry.holidayCategory === 'saturday' && 'Saturday Work'}
-                              {entry.holidayCategory === 'other' && 'Holiday Work'}
-                            </Badge>
+                <div key={entry._id} className="space-y-2">
+                  <Card className={`hover:translate-y-[-1px] transition-transform ${entry.deletedAt ? 'border-red-400/60 bg-red-50 dark:bg-red-950/30' : ''}`}>
+                    <CardContent className="p-4">
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-4 mb-2">
+                            <span className="font-medium">
+                              {entry.timeIn || '--:--'} - {entry.timeOut || '--:--'}
+                            </span>
+                            {/* Break minutes no longer tracked; hourly rate shown for reference */}
+                            <Badge variant="secondary">${entry.hourlyRate}/hr</Badge>
+                            {entry.deletedAt && <Badge variant="destructive">Deleted</Badge>}
+                            {entry.timer?.isRunning && (
+                              <Badge variant="default" className="bg-green-500 gap-1">
+                                <Clock className="h-3 w-3" />
+                                Timer Running
+                              </Badge>
+                            )}
+                            {entry.isHolidayWork && (
+                              <Badge variant="outline" className="border-amber-500 text-amber-600 dark:text-amber-400">
+                                {entry.holidayCategory === 'sunday' && 'Sunday Work'}
+                                {entry.holidayCategory === 'saturday' && 'Saturday Work'}
+                                {entry.holidayCategory === 'other' && 'Holiday Work'}
+                              </Badge>
+                            )}
+                          </div>
+
+                          <div className="flex items-center gap-4 text-sm text-muted-foreground mb-2">
+                            <span>{formatTime(entry.totalHours)}</span>
+                            <span className="text-green-600 font-medium">{formatCurrency(entry.totalEarnings)}</span>
+                          </div>
+
+                          {entry.workDescription && (
+                            <p className="text-sm text-muted-foreground">{entry.workDescription}</p>
                           )}
                         </div>
 
-                        <div className="flex items-center gap-4 text-sm text-muted-foreground mb-2">
-                          <span>{formatTime(entry.totalHours)}</span>
-                          <span className="text-green-600 font-medium">{formatCurrency(entry.totalEarnings)}</span>
+                        <div className="flex gap-2 ml-4">
+                          <Button variant="outline" size="sm" onClick={() => onEdit(entry)}>
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleDelete(entry._id!)}
+                            disabled={deletingId === entry._id}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
                         </div>
-
-                        {entry.workDescription && (
-                          <p className="text-sm text-muted-foreground">{entry.workDescription}</p>
-                        )}
                       </div>
-
-                      <div className="flex gap-2 ml-4">
-                        <Button variant="outline" size="sm" onClick={() => onEdit(entry)}>
-                          <Pencil className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleDelete(entry._id!)}
-                          disabled={deletingId === entry._id}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
+                    </CardContent>
+                  </Card>
+                  
+                  {/* Show timer controls for entries with active or paused timers */}
+                  {entry._id && entry.timer && (
+                    <TimerControls 
+                      entryId={entry._id} 
+                      onTimerStop={() => {
+                        // Refresh the entry list when timer stops
+                        window.location.reload()
+                      }}
+                    />
+                  )}
+                </div>
               ))}
             </div>
           </div>

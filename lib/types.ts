@@ -16,9 +16,21 @@ export interface TimeEntry {
   isHolidayWork?: boolean
   holidayCategory?: "sunday" | "saturday" | "other"
   isHolidayExtra?: boolean // when true, time range represents extra hours in addition to base holiday hours
+  // Timer fields for persistent timers
+  timer?: TimerState
   createdAt?: Date
   updatedAt?: Date
   deletedAt?: Date | null // soft delete marker; null/undefined means active
+}
+
+export interface TimerState {
+  isRunning: boolean
+  startedAt?: Date // ISO timestamp when timer started
+  pausedAt?: Date[] // Array of pause timestamps
+  resumedAt?: Date[] // Array of resume timestamps
+  lastHeartbeatAt?: Date // Last client heartbeat timestamp
+  accumulatedSeconds: number // Total seconds accumulated across all sessions
+  idleThresholdMinutes?: number // Configurable idle detection threshold (default 10)
 }
 
 export type LeaveType = "Sick" | "Vacation" | "Personal" | "Holiday" | "Other"
@@ -156,4 +168,19 @@ export interface AddSalaryIncrementRequest {
 export interface HourlyRateResponse {
   date: string
   hourlyRate: number
+}
+
+export interface TimerActionResponse {
+  success: boolean
+  timer: TimerState
+  entry: TimeEntry
+}
+
+export interface IdleDetectionPrompt {
+  detectedIdleSeconds: number
+  idleStartedAt: Date
+  suggestedCorrection: {
+    discardIdleTime: boolean
+    adjustedSeconds: number
+  }
 }

@@ -26,6 +26,15 @@ export const timeEntryBase = {
   isHolidayExtra: z.boolean().optional().default(false),
   totalHours: z.number().min(0).max(48).optional(),
   deletedAt: z.string().datetime().optional().nullable(),
+  timer: z.object({
+    isRunning: z.boolean(),
+    startedAt: z.string().datetime().optional(),
+    pausedAt: z.array(z.string().datetime()).optional(),
+    resumedAt: z.array(z.string().datetime()).optional(),
+    lastHeartbeatAt: z.string().datetime().optional(),
+    accumulatedSeconds: z.number().int().min(0),
+    idleThresholdMinutes: z.number().int().min(1).max(60).optional(),
+  }).optional(),
 }
 
 export const createTimeEntrySchema = z.object(timeEntryBase)

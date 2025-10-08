@@ -16,6 +16,10 @@ function deriveHolidayCategory(date: string): "sunday" | "saturday" | "other" {
 
 export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
   try {
+    // Await params to satisfy Next.js App Router requirements
+    const resolvedParams = await params as { id: string }
+    const id = resolvedParams.id
+
     const cookieToken = request.cookies.get("auth-token")?.value
     const userFromToken = cookieToken ? verifyToken(cookieToken) : null
     const userId = userFromToken?._id
@@ -86,7 +90,7 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
 
     const collection = db.collection<TimeEntry>("timeEntries")
 
-  const result = await collection.updateOne({ _id: new ObjectId(params.id) as any, userId }, { $set: updateData })
+  const result = await collection.updateOne({ _id: new ObjectId(id) as any, userId }, { $set: updateData })
 
     if (result.matchedCount === 0) {
       return NextResponse.json({ error: "Time entry not found" }, { status: 404 })
@@ -102,6 +106,10 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
 // Soft delete endpoint (marks deletedAt and returns a restore token good for 15s)
 export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
   try {
+    // Await params to satisfy Next.js App Router requirements
+    const resolvedParams = await params as { id: string }
+    const id = resolvedParams.id
+
     const cookieToken = request.cookies.get("auth-token")?.value
     const userFromToken = cookieToken ? verifyToken(cookieToken) : null
     const userId = userFromToken?._id
@@ -122,7 +130,7 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
     const { db } = await connectToDatabase()
     const collection = db.collection<TimeEntry>("timeEntries")
 
-  const entry = await collection.findOne({ _id: new ObjectId(params.id) as any, userId })
+  const entry = await collection.findOne({ _id: new ObjectId(id) as any, userId })
     if (!entry || entry.deletedAt) {
       return NextResponse.json({ error: "Time entry not found" }, { status: 404 })
     }
@@ -130,8 +138,8 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
     const deletedAt = new Date()
     await collection.updateOne({ _id: entry._id, userId }, { $set: { deletedAt, updatedAt: new Date() } })
 
-    const restoreToken = Buffer.from(JSON.stringify({ id: params.id, ts: Date.now() })).toString('base64')
-    return NextResponse.json({ success: true, id: params.id, restoreToken, expiresInMs: 15_000 })
+    const restoreToken = Buffer.from(JSON.stringify({ id, ts: Date.now() })).toString('base64')
+    return NextResponse.json({ success: true, id, restoreToken, expiresInMs: 15_000 })
   } catch (error) {
     console.error("Error soft deleting time entry:", error)
     return NextResponse.json({ error: "Failed to delete time entry" }, { status: 500 })
@@ -141,6 +149,10 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
 // Restore (undo) within a 15s window: POST with { restoreToken }
 export async function POST(request: NextRequest, { params }: { params: { id: string } }) {
   try {
+    // Await params to satisfy Next.js App Router requirements
+    const resolvedParams = await params as { id: string }
+    const id = resolvedParams.id
+
     const cookieToken = request.cookies.get("auth-token")?.value
     const userFromToken = cookieToken ? verifyToken(cookieToken) : null
     const userId = userFromToken?._id
@@ -168,7 +180,7 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
     } catch {
       return NextResponse.json({ error: "Invalid token" }, { status: 400 })
     }
-    if (decoded.id !== params.id) {
+    if (decoded.id !== id) {
       return NextResponse.json({ error: "Token mismatch" }, { status: 400 })
     }
     if (Date.now() - decoded.ts > 15_000) {
@@ -177,7 +189,7 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
 
     const { db } = await connectToDatabase()
     const collection = db.collection<TimeEntry>("timeEntries")
-  const entry = await collection.findOne({ _id: new ObjectId(params.id) as any, userId })
+  const entry = await collection.findOne({ _id: new ObjectId(id) as any, userId })
     if (!entry || !entry.deletedAt) {
       return NextResponse.json({ error: "Entry not found or not deleted" }, { status: 404 })
     }

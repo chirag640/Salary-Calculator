@@ -128,8 +128,9 @@ export async function POST(request: NextRequest) {
   const { date, timeIn, timeOut, breakMinutes, workDescription, client, project, leave, totalHours: providedHours, isHolidayWork, holidayCategory, isHolidayExtra } = parse.data
 
     const { db } = await connectToDatabase()
-    // Overlapping prevention: only if not leave and we have a time range
-  if (timeIn && timeOut && !leave?.isLeave && !(isHolidayWork && !isHolidayExtra)) {
+    // Overlapping prevention: only if not leave, not holiday work, and we have a time range
+    // Skip overlap check for holiday work entries as they have special semantics (base 9h + optional extra)
+  if (timeIn && timeOut && !leave?.isLeave && !isHolidayWork) {
       const overlap = await db.collection<TimeEntry>("timeEntries").findOne({
         userId,
         date,
