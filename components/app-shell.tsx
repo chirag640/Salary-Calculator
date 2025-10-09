@@ -39,14 +39,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const NavItems = () => (
     <div className="flex items-center gap-1">
       <NavLink href="/" icon={Timer}>Time</NavLink>
+      <NavLink href="/history">History</NavLink>
+      <NavLink href="/export">Export</NavLink>
       <NavLink href="/profile" icon={User}>Profile</NavLink>
-      {/* For features on main page tabs, keep simple links to home */}
-      <a href="/#invoice" className="inline-flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-accent">
-        <FileText className="h-4 w-4" /><span className="hidden sm:inline">Invoice</span>
-      </a>
-      <a href="/#export" className="inline-flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-accent">
-        <Download className="h-4 w-4" /><span className="hidden sm:inline">Export</span>
-      </a>
     </div>
   )
 

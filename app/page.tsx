@@ -4,23 +4,18 @@ import { useState, useEffect, useCallback, useRef } from "react"
 import { TimeEntryForm } from "@/components/time-entry-form"
 import { TimeEntryList } from "@/components/time-entry-list"
 import { DatePicker } from "@/components/date-picker"
-import { SummaryDashboard } from "@/components/summary-dashboard"
-import { InvoiceGenerator } from "@/components/invoice-generator"
-import { ExportManager } from "@/components/export-manager"
-import { AIReportGenerator } from "@/components/ai-report-generator"
 import { QuickStartTimer } from "@/components/quick-start-timer"
-import { QuickActionsMenu } from "@/components/quick-actions-menu"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import type { TimeEntry } from "@/lib/types"
-import { Clock, DollarSign, CalendarX, BarChart3, FileText, Download, Brain, User } from "lucide-react"
+import { Clock, DollarSign, CalendarX } from "lucide-react"
 import { format } from "date-fns"
 import { useRouter } from "next/navigation"
 import { motion, fadeInUp, staggerContainer } from "@/components/motion"
 import { useToast } from "@/hooks/use-toast"
 import { ToastAction } from "@/components/ui/toast"
 import { useCsrfToken } from "@/hooks/use-csrf"
+import { cn } from "@/lib/utils"
 
 export default function TimeTracker() {
   const [selectedDate, setSelectedDate] = useState(new Date())
@@ -31,7 +26,7 @@ export default function TimeTracker() {
   const loadMoreRef = useRef<HTMLDivElement | null>(null)
   const [editingEntry, setEditingEntry] = useState<TimeEntry | null>(null)
   const [loading, setLoading] = useState(true)
-  const [tab, setTab] = useState<string>("log")
+  const [showDeleted, setShowDeleted] = useState(false)
   const router = useRouter()
   const { toast } = useToast()
   const { csrfToken, ensureCsrfToken } = useCsrfToken()
@@ -80,7 +75,6 @@ export default function TimeTracker() {
     }
   }
 
-  const [showDeleted, setShowDeleted] = useState(false)
   const loadMore = useCallback(async () => {
     if (!nextCursor || loadingMore) return
     setLoadingMore(true)
@@ -115,6 +109,32 @@ export default function TimeTracker() {
   // Load entries on mount and date change
   useEffect(() => {
     fetchEntries(undefined, { showDeleted })
+    
+    // Check if we're editing an entry from history page
+    const editingEntryStr = sessionStorage.getItem('editingEntry')
+    if (editingEntryStr) {
+      try {
+        const entry = JSON.parse(editingEntryStr)
+        setEditingEntry(entry)
+        setSelectedDate(new Date(entry.date + "T00:00:00"))
+        sessionStorage.removeItem('editingEntry')
+      } catch (e) {
+        console.error('Failed to parse editing entry:', e)
+      }
+    }
+
+    // Check if there's a date parameter in URL
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search)
+      const dateParam = params.get('date')
+      if (dateParam) {
+        try {
+          setSelectedDate(new Date(dateParam + "T00:00:00"))
+        } catch (e) {
+          console.error('Failed to parse date parameter:', e)
+        }
+      }
+    }
   }, [showDeleted])
 
   // Infinite scroll observer for history tab
@@ -130,18 +150,7 @@ export default function TimeTracker() {
     return () => observer.disconnect()
   }, [loadMore, nextCursor])
 
-  // Sync tab with URL hash (for anchors from AppShell)
-  useEffect(() => {
-    const validTabs = new Set(["log", "history", "summary", "invoice", "export", "ai-report"]) as Set<string>
-    const syncFromHash = () => {
-      if (typeof window === "undefined") return
-      const h = window.location.hash?.replace("#", "")
-      if (h && validTabs.has(h)) setTab(h)
-    }
-    syncFromHash()
-    window.addEventListener("hashchange", syncFromHash)
-    return () => window.removeEventListener("hashchange", syncFromHash)
-  }, [])
+
 
   // Handle form submission
   const handleSubmit = async (entryData: Omit<TimeEntry, "_id" | "createdAt" | "updatedAt" | "userId">) => {
@@ -227,11 +236,9 @@ export default function TimeTracker() {
   const handleEdit = (entry: TimeEntry) => {
     setEditingEntry(entry)
     setSelectedDate(new Date(entry.date + "T00:00:00"))
-    // Ensure the form is visible when editing from History tab
-    setTab('log')
+    // Scroll to top when editing
     if (typeof window !== 'undefined') {
-      const url = `${window.location.pathname}`
-      window.history.replaceState(null, '', url)
+      window.scrollTo({ top: 0, behavior: 'smooth' })
     }
   }
 
@@ -303,11 +310,51 @@ export default function TimeTracker() {
     }
   }
 
+  // Keyboard shortcuts - must be before early return
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // T = Jump to today
+      if (e.key === 't' || e.key === 'T') {
+        if (!e.ctrlKey && !e.metaKey && !e.altKey) {
+          const target = e.target as HTMLElement
+          // Don't trigger if user is typing in an input/textarea
+          if (target.tagName !== 'INPUT' && target.tagName !== 'TEXTAREA') {
+            e.preventDefault()
+            setSelectedDate(new Date())
+            toast({
+              title: "Jumped to today",
+              description: format(new Date(), "EEEE, MMMM d, yyyy")
+            })
+          }
+        }
+      }
+      // Arrow left = previous day
+      if (e.key === 'ArrowLeft' && (e.ctrlKey || e.metaKey)) {
+        e.preventDefault()
+        const prev = new Date(selectedDate)
+        prev.setDate(prev.getDate() - 1)
+        setSelectedDate(prev)
+      }
+      // Arrow right = next day
+      if (e.key === 'ArrowRight' && (e.ctrlKey || e.metaKey)) {
+        e.preventDefault()
+        const next = new Date(selectedDate)
+        next.setDate(next.getDate() + 1)
+        setSelectedDate(next)
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [selectedDate, toast])
+
   // Calculate totals for selected date
   const todayEntries = entries.filter((entry) => entry.date === selectedDateString)
   const todayTotalHours = todayEntries.reduce((sum, entry) => sum + entry.totalHours, 0)
   const todayTotalEarnings = todayEntries.reduce((sum, entry) => sum + entry.totalEarnings, 0)
   const todayLeaveCount = todayEntries.filter((entry) => entry.leave?.isLeave).length
+
+  const isToday = selectedDateString === todayString
+  const isPastDate = selectedDateString < todayString
 
   const handleLogout = async () => {
     try {
@@ -334,165 +381,123 @@ export default function TimeTracker() {
 
   return (
     <motion.div className="container mx-auto p-4 md:p-6 max-w-6xl" variants={staggerContainer} initial="hidden" animate="show">
-      <div className="mb-6 md:mb-8">
-        <motion.div variants={fadeInUp}>
-          <p className="text-sm md:text-base text-muted-foreground">Track your work hours, manage leave, and analyze productivity. Configure your salary and working hours in Profile.</p>
-        </motion.div>
-      </div>
-
-      {/* Quick Actions Menu */}
-      <QuickActionsMenu
-        onStartTimer={() => {
-          // Scroll to quick start timer
-          const timerElement = document.getElementById('quick-start-timer')
-          timerElement?.scrollIntoView({ behavior: 'smooth' })
-        }}
-        onLogYesterday={() => {
-          const yesterday = new Date()
-          yesterday.setDate(yesterday.getDate() - 1)
-          setSelectedDate(yesterday)
-          setTab('log')
-        }}
-        onViewWeeklySummary={() => {
-          setTab('summary')
-        }}
-        onQuickExport={() => {
-          setTab('export')
-        }}
-        className="mb-6"
-      />
-
-      {/* Date Selection */}
-      <div className="mb-6">
+      {/* Date Selection - Sticky on mobile */}
+      <div className="sticky top-0 md:top-4 z-40 bg-background/95 backdrop-blur-sm py-3 -mx-4 px-4 md:mx-0 md:px-0 md:bg-transparent md:backdrop-blur-none mb-6">
         <div className="flex items-center gap-2 md:gap-4">
           <div className="flex-1 max-w-xs">
             <DatePicker date={selectedDate} onDateChange={setSelectedDate} />
           </div>
-          <Button variant="glass" onClick={() => setSelectedDate(new Date())} size="sm" className="md:size-default">
-            Today
+          <Button 
+            variant={isToday ? "default" : "glass"} 
+            onClick={() => setSelectedDate(new Date())} 
+            size="sm" 
+            className={cn("md:size-default", isToday && "bg-primary")}
+          >
+            {isToday ? "Today" : "Jump to Today"}
           </Button>
+        </div>
+        {/* Date indicator */}
+        <div className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
+          <span className={cn("font-medium", isToday && "text-primary", isPastDate && "text-orange-500")}>
+            {isToday ? "📍 Today" : isPastDate ? "📅 Past Date" : "📆 Future Date"}
+          </span>
+          <span>•</span>
+          <span>{format(selectedDate, "EEEE, MMMM d, yyyy")}</span>
+        </div>
+        {/* Keyboard shortcuts hint */}
+        <div className="hidden md:block mt-1 text-xs text-muted-foreground/70">
+          Shortcuts: <kbd className="px-1 py-0.5 bg-muted rounded">T</kbd> = Today • <kbd className="px-1 py-0.5 bg-muted rounded">Ctrl+←</kbd> Previous • <kbd className="px-1 py-0.5 bg-muted rounded">Ctrl+→</kbd> Next
         </div>
       </div>
 
-      {/* Daily Summary */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 md:gap-4 mb-6 md:mb-8">
-        <motion.div variants={fadeInUp}>
-          <Card className="hover:shadow-md transition-shadow">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 px-4 pt-4">
-            <CardTitle className="text-sm font-medium">Hours Today</CardTitle>
-            <Clock className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent className="px-4 pb-4">
-            <div className="text-2xl md:text-3xl font-bold">{todayTotalHours.toFixed(2)}h</div>
-            <p className="text-xs text-muted-foreground mt-1">
-              {todayEntries.length} {todayEntries.length === 1 ? "entry" : "entries"}
-            </p>
-          </CardContent>
-          </Card>
-        </motion.div>
-
-        <motion.div variants={fadeInUp}>
-          <Card className="hover:shadow-md transition-shadow">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 px-4 pt-4">
-            <CardTitle className="text-sm font-medium">Earnings Today</CardTitle>
-            <DollarSign className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent className="px-4 pb-4">
-            <div className="text-2xl md:text-3xl font-bold text-green-600 dark:text-green-400">${todayTotalEarnings.toFixed(2)}</div>
-            <p className="text-xs text-muted-foreground mt-1">Based on logged hours</p>
-          </CardContent>
-          </Card>
-        </motion.div>
-
-        <motion.div variants={fadeInUp} className="sm:col-span-2 md:col-span-1">
-          <Card className="hover:shadow-md transition-shadow">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 px-4 pt-4">
-            <CardTitle className="text-sm font-medium">Leave Today</CardTitle>
-            <CalendarX className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent className="px-4 pb-4">
-            <div className="text-2xl md:text-3xl font-bold text-orange-600 dark:text-orange-400">{todayLeaveCount}</div>
-            <p className="text-xs text-muted-foreground mt-1">{todayLeaveCount > 0 ? "Day off" : "Work day"}</p>
-          </CardContent>
-          </Card>
-        </motion.div>
-      </div>
-
-      <Tabs value={tab} onValueChange={(v) => {
-        setTab(v)
-        // keep hash in URL for deep-linking
-        if (typeof window !== "undefined") {
-          const hash = v === "log" ? "" : `#${v}`
-          const url = `${window.location.pathname}${hash}`
-          window.history.replaceState(null, "", url)
-        }
-      }} className="space-y-4 md:space-y-6">
-        <TabsList className="grid w-full grid-cols-3 md:grid-cols-6 gap-1">
-          <TabsTrigger value="log" className="text-xs md:text-sm">
-            <Clock className="h-3 w-3 md:h-4 md:w-4 mr-1 md:mr-0" />
-            <span className="md:inline">Log</span>
-          </TabsTrigger>
-          <TabsTrigger value="history" className="text-xs md:text-sm">
-            <span className="md:inline">History</span>
-          </TabsTrigger>
-          <TabsTrigger value="summary" className="text-xs md:text-sm">
-            <BarChart3 className="h-3 w-3 md:h-4 md:w-4 mr-1 md:mr-2" />
-            <span className="hidden md:inline">Summary</span>
-          </TabsTrigger>
-          <TabsTrigger value="invoice" className="text-xs md:text-sm">
-            <FileText className="h-3 w-3 md:h-4 md:w-4 mr-1 md:mr-2" />
-            <span className="hidden md:inline">Invoice</span>
-          </TabsTrigger>
-          <TabsTrigger value="export" className="text-xs md:text-sm">
-            <Download className="h-3 w-3 md:h-4 md:w-4 mr-1 md:mr-2" />
-            <span className="hidden md:inline">Export</span>
-          </TabsTrigger>
-          <TabsTrigger value="ai-report" className="text-xs md:text-sm">
-            <Brain className="h-3 w-3 md:h-4 md:w-4 mr-1 md:mr-2" />
-            <span className="hidden md:inline">AI</span>
-          </TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="log" className="space-y-6">
-          {/* Quick Start Timer */}
-          {!editingEntry && (
-            <div id="quick-start-timer" className="flex justify-center">
-              {selectedDateString === todayString && (
-                <QuickStartTimer 
-                  selectedDate={selectedDateString}
-                  onEntryCreated={(entryId) => {
-                    // Refresh entries to show the new timer
-                    fetchEntries(undefined, { showDeleted })
-                    toast({
-                      title: "Timer started!",
-                      description: "Your work timer is now running."
-                    })
-                  }}
-                  onTimerStopped={() => {
-                    // Refresh entries when timer is stopped
-                    fetchEntries(undefined, { showDeleted })
-                    toast({
-                      title: "Timer stopped",
-                      description: "Your work session has been saved."
-                    })
-                  }}
-                />
+      {/* Summary for Selected Date */}
+      <motion.div variants={fadeInUp} className="mb-6">
+        <Card className={cn("hover:shadow-lg transition-all", 
+          todayEntries.some(e => e.timer?.isRunning) && "border-green-500 shadow-green-500/20")}>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center justify-between">
+              <span>Summary for {isToday ? "Today" : format(selectedDate, "MMM d")}</span>
+              {todayEntries.some(e => e.timer?.isRunning) && (
+                <span className="flex items-center gap-2 text-sm text-green-600 dark:text-green-400 font-normal">
+                  <Clock className="h-4 w-4 animate-pulse" />
+                  Timer Running
+                </span>
               )}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-3 gap-4">
+              <div>
+                <div className="flex items-center gap-2 text-xs text-muted-foreground mb-1">
+                  <Clock className="h-3 w-3" />
+                  <span>Hours</span>
+                </div>
+                <div className="text-2xl font-bold">{todayTotalHours.toFixed(2)}h</div>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  {todayEntries.length} {todayEntries.length === 1 ? "entry" : "entries"}
+                </p>
+              </div>
+              <div>
+                <div className="flex items-center gap-2 text-xs text-muted-foreground mb-1">
+                  <DollarSign className="h-3 w-3" />
+                  <span>Earnings</span>
+                </div>
+                <div className="text-2xl font-bold text-green-600 dark:text-green-400">
+                  ${todayTotalEarnings.toFixed(2)}
+                </div>
+                <p className="text-xs text-muted-foreground mt-0.5">Total earned</p>
+              </div>
+              <div>
+                <div className="flex items-center gap-2 text-xs text-muted-foreground mb-1">
+                  <CalendarX className="h-3 w-3" />
+                  <span>Leave</span>
+                </div>
+                <div className="text-2xl font-bold text-orange-600 dark:text-orange-400">
+                  {todayLeaveCount}
+                </div>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  {todayLeaveCount > 0 ? "Day off" : "Work day"}
+                </p>
+              </div>
             </div>
-          )}
+          </CardContent>
+        </Card>
+      </motion.div>
 
-          {/* Only show regular form if not using quick start timer and not editing */}
-          {!editingEntry && !todayEntries.some(e => e.timer?.isRunning) && (
+      {/* Quick Start Timer - only for today */}
+      {selectedDateString === todayString && !editingEntry && (
+        <motion.div variants={fadeInUp} id="quick-start-timer" className="flex justify-center mb-6">
+          <QuickStartTimer 
+            selectedDate={selectedDateString}
+            onEntryCreated={(entryId) => {
+              fetchEntries(undefined, { showDeleted })
+              toast({
+                title: "Timer started!",
+                description: "Your work timer is now running."
+              })
+            }}
+            onTimerStopped={() => {
+              fetchEntries(undefined, { showDeleted })
+              toast({
+                title: "Timer stopped",
+                description: "Your work session has been saved."
+              })
+            }}
+          />
+        </motion.div>
+      )}
+
+      {/* Time Entry Form - collapsible on mobile */}
+      {!todayEntries.some(e => e.timer?.isRunning) && (
+        <motion.div variants={fadeInUp} className="mb-6">
+          {!editingEntry ? (
             <TimeEntryForm
               selectedDate={selectedDateString}
               onSubmit={handleSubmit}
-              initialData={editingEntry || undefined}
-              isEditing={!!editingEntry}
+              initialData={undefined}
+              isEditing={false}
             />
-          )}
-
-          {/* Show form when editing */}
-          {editingEntry && (
+          ) : (
             <>
               <TimeEntryForm
                 selectedDate={selectedDateString}
@@ -500,73 +505,50 @@ export default function TimeTracker() {
                 initialData={editingEntry}
                 isEditing={true}
               />
-              <div className="flex justify-center">
+              <div className="flex justify-center mt-4">
                 <Button variant="glass" onClick={() => setEditingEntry(null)}>
                   Cancel Edit
                 </Button>
               </div>
             </>
           )}
+        </motion.div>
+      )}
 
-          {/* Today's entries */}
+      {/* Entries for Selected Date */}
+      <motion.div variants={fadeInUp}>
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg md:text-xl font-semibold">
+            {isToday ? "Today's Entries" : `Entries for ${format(selectedDate, "MMM d, yyyy")}`}
+          </h3>
           {todayEntries.length > 0 && (
-            <motion.div variants={fadeInUp}>
-              <h3 className="text-lg font-semibold mb-4">Today's Entries</h3>
-              <TimeEntryList entries={todayEntries} onEdit={handleEdit} onDelete={handleDelete} />
-            </motion.div>
+            <span className="text-sm text-muted-foreground">
+              {todayEntries.length} {todayEntries.length === 1 ? "entry" : "entries"}
+            </span>
           )}
-        </TabsContent>
-
-        <TabsContent value="history">
-          <motion.div variants={fadeInUp}>
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2 text-xs">
-                <label className="flex items-center gap-1 cursor-pointer select-none">
-                  <input
-                    type="checkbox"
-                    className="accent-primary"
-                    checked={showDeleted}
-                    onChange={(e) => setShowDeleted(e.target.checked)}
-                  />
-                  Show deleted
-                </label>
-                {showDeleted && <span className="text-muted-foreground">(soft-deleted items in red)</span>}
-              </div>
-              <Button size="sm" variant="outline" onClick={() => fetchEntries(undefined, { showDeleted })}>
-                Refresh
-              </Button>
-            </div>
-            <TimeEntryList entries={historyItems} onEdit={handleEdit} onDelete={handleDelete} />
-            <div ref={loadMoreRef} className="h-10 flex items-center justify-center text-xs text-muted-foreground">
-              {nextCursor ? (loadingMore ? 'Loading more...' : 'Scroll to load more') : 'End of history'}
-            </div>
-          </motion.div>
-        </TabsContent>
-
-        <TabsContent value="summary">
-          <motion.div variants={fadeInUp}>
-            <SummaryDashboard entries={entries} />
-          </motion.div>
-        </TabsContent>
-
-        <TabsContent value="invoice" id="invoice">
-          <motion.div variants={fadeInUp}>
-            <InvoiceGenerator />
-          </motion.div>
-        </TabsContent>
-
-        <TabsContent value="export" id="export">
-          <motion.div variants={fadeInUp}>
-            <ExportManager />
-          </motion.div>
-        </TabsContent>
-
-        <TabsContent value="ai-report" id="ai-report">
-          <motion.div variants={fadeInUp}>
-            <AIReportGenerator />
-          </motion.div>
-        </TabsContent>
-      </Tabs>
+        </div>
+        
+        {todayEntries.length > 0 ? (
+          <TimeEntryList entries={todayEntries} onEdit={handleEdit} onDelete={handleDelete} />
+        ) : (
+          <Card className="py-12">
+            <CardContent className="flex flex-col items-center justify-center text-center">
+              <CalendarX className="h-16 w-16 text-muted-foreground/50 mb-4" />
+              <h3 className="text-lg font-medium mb-2">No entries for this date</h3>
+              <p className="text-sm text-muted-foreground mb-4">
+                {isToday 
+                  ? "Start tracking your time by using the Quick Start Timer or filling out the form above." 
+                  : "No time entries logged for this date. Use the form above to add one."}
+              </p>
+              {!isToday && (
+                <Button variant="outline" onClick={() => setSelectedDate(new Date())}>
+                  Jump to Today
+                </Button>
+              )}
+            </CardContent>
+          </Card>
+        )}
+      </motion.div>
     </motion.div>
   )
 }
