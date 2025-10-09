@@ -9,6 +9,7 @@ import { InvoiceGenerator } from "@/components/invoice-generator"
 import { ExportManager } from "@/components/export-manager"
 import { AIReportGenerator } from "@/components/ai-report-generator"
 import { QuickStartTimer } from "@/components/quick-start-timer"
+import { QuickActionsMenu } from "@/components/quick-actions-menu"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -36,6 +37,7 @@ export default function TimeTracker() {
   const { csrfToken, ensureCsrfToken } = useCsrfToken()
 
   const selectedDateString = format(selectedDate, "yyyy-MM-dd")
+  const todayString = format(new Date(), "yyyy-MM-dd")
 
   // Fetch entries
   const fetchEntries = async (date?: string, opts?: { append?: boolean; showDeleted?: boolean }) => {
@@ -309,7 +311,7 @@ export default function TimeTracker() {
 
   const handleLogout = async () => {
     try {
-      await fetch("/api/auth/logout", { method: "POST" })
+      await fetch("/api/auth/logout", { method: "POST", credentials: 'same-origin' })
       // HttpOnly cookie cleared server-side; client fallback removal not needed.
       router.push("/login")
     } catch (error) {
@@ -331,36 +333,58 @@ export default function TimeTracker() {
   }
 
   return (
-    <motion.div className="container mx-auto p-6 max-w-6xl" variants={staggerContainer} initial="hidden" animate="show">
-      <div className="mb-8">
+    <motion.div className="container mx-auto p-4 md:p-6 max-w-6xl" variants={staggerContainer} initial="hidden" animate="show">
+      <div className="mb-6 md:mb-8">
         <motion.div variants={fadeInUp}>
-          <p className="text-muted-foreground">Track your work hours, manage leave, and analyze productivity. Configure your salary and working hours in Profile.</p>
+          <p className="text-sm md:text-base text-muted-foreground">Track your work hours, manage leave, and analyze productivity. Configure your salary and working hours in Profile.</p>
         </motion.div>
       </div>
 
+      {/* Quick Actions Menu */}
+      <QuickActionsMenu
+        onStartTimer={() => {
+          // Scroll to quick start timer
+          const timerElement = document.getElementById('quick-start-timer')
+          timerElement?.scrollIntoView({ behavior: 'smooth' })
+        }}
+        onLogYesterday={() => {
+          const yesterday = new Date()
+          yesterday.setDate(yesterday.getDate() - 1)
+          setSelectedDate(yesterday)
+          setTab('log')
+        }}
+        onViewWeeklySummary={() => {
+          setTab('summary')
+        }}
+        onQuickExport={() => {
+          setTab('export')
+        }}
+        className="mb-6"
+      />
+
       {/* Date Selection */}
       <div className="mb-6">
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-2 md:gap-4">
           <div className="flex-1 max-w-xs">
             <DatePicker date={selectedDate} onDateChange={setSelectedDate} />
           </div>
-          <Button variant="glass" onClick={() => setSelectedDate(new Date())}>
+          <Button variant="glass" onClick={() => setSelectedDate(new Date())} size="sm" className="md:size-default">
             Today
           </Button>
         </div>
       </div>
 
       {/* Daily Summary */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 md:gap-4 mb-6 md:mb-8">
         <motion.div variants={fadeInUp}>
-          <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <Card className="hover:shadow-md transition-shadow">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 px-4 pt-4">
             <CardTitle className="text-sm font-medium">Hours Today</CardTitle>
             <Clock className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{todayTotalHours.toFixed(2)}h</div>
-            <p className="text-xs text-muted-foreground">
+          <CardContent className="px-4 pb-4">
+            <div className="text-2xl md:text-3xl font-bold">{todayTotalHours.toFixed(2)}h</div>
+            <p className="text-xs text-muted-foreground mt-1">
               {todayEntries.length} {todayEntries.length === 1 ? "entry" : "entries"}
             </p>
           </CardContent>
@@ -368,27 +392,27 @@ export default function TimeTracker() {
         </motion.div>
 
         <motion.div variants={fadeInUp}>
-          <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <Card className="hover:shadow-md transition-shadow">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 px-4 pt-4">
             <CardTitle className="text-sm font-medium">Earnings Today</CardTitle>
             <DollarSign className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-green-600">${todayTotalEarnings.toFixed(2)}</div>
-            <p className="text-xs text-muted-foreground">Based on logged hours</p>
+          <CardContent className="px-4 pb-4">
+            <div className="text-2xl md:text-3xl font-bold text-green-600 dark:text-green-400">${todayTotalEarnings.toFixed(2)}</div>
+            <p className="text-xs text-muted-foreground mt-1">Based on logged hours</p>
           </CardContent>
           </Card>
         </motion.div>
 
-        <motion.div variants={fadeInUp}>
-          <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+        <motion.div variants={fadeInUp} className="sm:col-span-2 md:col-span-1">
+          <Card className="hover:shadow-md transition-shadow">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 px-4 pt-4">
             <CardTitle className="text-sm font-medium">Leave Today</CardTitle>
             <CalendarX className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-orange-600">{todayLeaveCount}</div>
-            <p className="text-xs text-muted-foreground">{todayLeaveCount > 0 ? "Day off" : "Work day"}</p>
+          <CardContent className="px-4 pb-4">
+            <div className="text-2xl md:text-3xl font-bold text-orange-600 dark:text-orange-400">{todayLeaveCount}</div>
+            <p className="text-xs text-muted-foreground mt-1">{todayLeaveCount > 0 ? "Day off" : "Work day"}</p>
           </CardContent>
           </Card>
         </motion.div>
@@ -402,51 +426,58 @@ export default function TimeTracker() {
           const url = `${window.location.pathname}${hash}`
           window.history.replaceState(null, "", url)
         }
-      }} className="space-y-6">
-        <TabsList className="grid w-full grid-cols-6">
-          <TabsTrigger value="log">Log Time</TabsTrigger>
-          <TabsTrigger value="history">History</TabsTrigger>
-          <TabsTrigger value="summary">
-            <BarChart3 className="h-4 w-4 mr-2" />
-            Summary
+      }} className="space-y-4 md:space-y-6">
+        <TabsList className="grid w-full grid-cols-3 md:grid-cols-6 gap-1">
+          <TabsTrigger value="log" className="text-xs md:text-sm">
+            <Clock className="h-3 w-3 md:h-4 md:w-4 mr-1 md:mr-0" />
+            <span className="md:inline">Log</span>
           </TabsTrigger>
-          <TabsTrigger value="invoice">
-            <FileText className="h-4 w-4 mr-2" />
-            Invoice
+          <TabsTrigger value="history" className="text-xs md:text-sm">
+            <span className="md:inline">History</span>
           </TabsTrigger>
-          <TabsTrigger value="export">
-            <Download className="h-4 w-4 mr-2" />
-            Export
+          <TabsTrigger value="summary" className="text-xs md:text-sm">
+            <BarChart3 className="h-3 w-3 md:h-4 md:w-4 mr-1 md:mr-2" />
+            <span className="hidden md:inline">Summary</span>
           </TabsTrigger>
-          <TabsTrigger value="ai-report">
-            <Brain className="h-4 w-4 mr-2" />
-            AI Report
+          <TabsTrigger value="invoice" className="text-xs md:text-sm">
+            <FileText className="h-3 w-3 md:h-4 md:w-4 mr-1 md:mr-2" />
+            <span className="hidden md:inline">Invoice</span>
+          </TabsTrigger>
+          <TabsTrigger value="export" className="text-xs md:text-sm">
+            <Download className="h-3 w-3 md:h-4 md:w-4 mr-1 md:mr-2" />
+            <span className="hidden md:inline">Export</span>
+          </TabsTrigger>
+          <TabsTrigger value="ai-report" className="text-xs md:text-sm">
+            <Brain className="h-3 w-3 md:h-4 md:w-4 mr-1 md:mr-2" />
+            <span className="hidden md:inline">AI</span>
           </TabsTrigger>
         </TabsList>
 
         <TabsContent value="log" className="space-y-6">
           {/* Quick Start Timer */}
           {!editingEntry && (
-            <div className="flex justify-center">
-              <QuickStartTimer 
-                selectedDate={selectedDateString}
-                onEntryCreated={(entryId) => {
-                  // Refresh entries to show the new timer
-                  fetchEntries(undefined, { showDeleted })
-                  toast({
-                    title: "Timer started!",
-                    description: "Your work timer is now running."
-                  })
-                }}
-                onTimerStopped={() => {
-                  // Refresh entries when timer is stopped
-                  fetchEntries(undefined, { showDeleted })
-                  toast({
-                    title: "Timer stopped",
-                    description: "Your work session has been saved."
-                  })
-                }}
-              />
+            <div id="quick-start-timer" className="flex justify-center">
+              {selectedDateString === todayString && (
+                <QuickStartTimer 
+                  selectedDate={selectedDateString}
+                  onEntryCreated={(entryId) => {
+                    // Refresh entries to show the new timer
+                    fetchEntries(undefined, { showDeleted })
+                    toast({
+                      title: "Timer started!",
+                      description: "Your work timer is now running."
+                    })
+                  }}
+                  onTimerStopped={() => {
+                    // Refresh entries when timer is stopped
+                    fetchEntries(undefined, { showDeleted })
+                    toast({
+                      title: "Timer stopped",
+                      description: "Your work session has been saved."
+                    })
+                  }}
+                />
+              )}
             </div>
           )}
 

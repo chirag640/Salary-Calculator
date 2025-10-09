@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Alert, AlertDescription } from "@/components/ui/alert"
+import GoogleSignInButton from '@/components/google-signin-button'
 
 export default function RegisterPage() {
   const [name, setName] = useState("")
@@ -47,8 +48,18 @@ export default function RegisterPage() {
       const data = await response.json()
 
       if (response.ok) {
-        // Server sets secure HttpOnly cookie; just redirect to profile setup.
-        router.push("/profile")
+        // If server sent an OTP for verification, go to verify screen.
+        // The register endpoint returns a message indicating OTP was sent.
+        if (data?.message && /verification code sent/i.test(String(data.message))) {
+          const returnTo = data?.returnTo || "/profile"
+          // Pass the email so the verify page can pre-fill it (sanitized/masked on server)
+          router.push(`/verify-email?email=${encodeURIComponent(email)}&returnTo=${encodeURIComponent(returnTo)}`)
+        } else if (data?.token || data?.user) {
+          // Backwards-compatible flow: token/user indicates immediate registration
+          router.push("/profile")
+        } else {
+          router.push("/profile")
+        }
       } else {
         setError(data.error || "Registration failed")
       }
@@ -128,6 +139,10 @@ export default function RegisterPage() {
               {loading ? "Creating account..." : "Create Account"}
             </Button>
           </form>
+
+          <div className="mt-4">
+            <GoogleSignInButton redirectTo="/profile" />
+          </div>
 
           <div className="mt-6 text-center">
             <p className="text-sm text-muted-foreground">

@@ -38,6 +38,9 @@ export function TimeEntryForm({ selectedDate, onSubmit, initialData, isEditing =
   const [isHolidayExtra, setIsHolidayExtra] = useState<boolean>(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
 
+    // Determine whether time inputs should be required
+    const timesRequired = !isLeave && !isHolidayWork && manualHours <= 0
+
   // Keep form state in sync when switching between entries to edit or exiting edit mode
   React.useEffect(() => {
     if (initialData && isEditing) {
@@ -64,27 +67,38 @@ export function TimeEntryForm({ selectedDate, onSubmit, initialData, isEditing =
     }
   }, [initialData, isEditing])
 
-  // Live calculation
+  // Live calculation: compute hours regardless of whether hourlyRate is available.
+  // Earnings depend on hourlyRate; if hourlyRate is 0 we'll show 0 earnings but still
+  // allow the user to save the entry (useful for prior dates where rate may not be set).
   const calculation = (() => {
-    if (isLeave || hourlyRate <= 0) return { totalHours: 0, totalEarnings: 0 }
+    if (isLeave) return { totalHours: 0, totalEarnings: 0 }
     const baseHolidayHours = 9
     if (isHolidayWork) {
       if (isHolidayExtra && timeIn && timeOut) {
         const extraCalc = calculateTimeWorked(timeIn, timeOut, breakMinutes, hourlyRate).totalHours
         const total = Math.round((baseHolidayHours + extraCalc) * 100) / 100
-        const earnings = Math.round(total * hourlyRate * 100) / 100
+        const earnings = hourlyRate > 0 ? Math.round(total * hourlyRate * 100) / 100 : 0
         return { totalHours: total, totalEarnings: earnings }
       } else {
         const total = baseHolidayHours
-        const earnings = Math.round(total * hourlyRate * 100) / 100
+        const earnings = hourlyRate > 0 ? Math.round(total * hourlyRate * 100) / 100 : 0
         return { totalHours: total, totalEarnings: earnings }
       }
     }
-    if (timeIn && timeOut) return calculateTimeWorked(timeIn, timeOut, breakMinutes, hourlyRate)
+
+    if (timeIn && timeOut) {
+      // calculateTimeWorked will compute totalHours; earnings use hourlyRate (may be 0)
+      const calc = calculateTimeWorked(timeIn, timeOut, breakMinutes, hourlyRate)
+      // If hourlyRate === 0, calculateTimeWorked will produce 0 earnings; keep hours
+      return { totalHours: calc.totalHours, totalEarnings: calc.totalEarnings }
+    }
+
     if (manualHours > 0) {
       const h = Math.round(manualHours * 100) / 100
-      return { totalHours: h, totalEarnings: Math.round(h * hourlyRate * 100) / 100 }
+      const earnings = hourlyRate > 0 ? Math.round(h * hourlyRate * 100) / 100 : 0
+      return { totalHours: h, totalEarnings: earnings }
     }
+
     return { totalHours: 0, totalEarnings: 0 }
   })()
 
@@ -122,9 +136,14 @@ export function TimeEntryForm({ selectedDate, onSubmit, initialData, isEditing =
           return
         }
       } else {
-        if ((!(timeIn && timeOut) && manualHours <= 0) || hourlyRate <= 0) {
-          alert("Please fill in all required fields")
+        if ((!(timeIn && timeOut) && manualHours <= 0)) {
+          alert("Please fill in all required fields (provide a time range or manual hours)")
           return
+        }
+        // If hourly rate is missing for the selected date, warn but allow saving.
+        if (hourlyRate <= 0) {
+          const ok = typeof window !== 'undefined' ? window.confirm('Hourly rate is not set for the selected date. Total earnings will be recorded as $0. Do you want to continue?') : true
+          if (!ok) return
         }
       }
     }
@@ -315,7 +334,7 @@ export function TimeEntryForm({ selectedDate, onSubmit, initialData, isEditing =
                         type="time" 
                         value={timeIn} 
                         onChange={(e) => setTimeIn(e.target.value)} 
-                        required 
+                        required={timesRequired}
                         className="h-12 text-lg"
                       />
                     </div>
@@ -326,7 +345,7 @@ export function TimeEntryForm({ selectedDate, onSubmit, initialData, isEditing =
                         type="time" 
                         value={timeOut} 
                         onChange={(e) => setTimeOut(e.target.value)} 
-                        required 
+                        required={timesRequired}
                         className="h-12 text-lg"
                       />
                     </div>
@@ -390,26 +409,27 @@ export function TimeEntryForm({ selectedDate, onSubmit, initialData, isEditing =
                 />
               </div>
 
-              {/* Live calculation display */}
-              {calculation.totalHours > 0 && (
-                <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/30 dark:to-indigo-950/30 p-6 rounded-lg border-2 border-blue-200 dark:border-blue-800">
-                  <h3 className="text-sm font-semibold text-muted-foreground mb-3">Summary</h3>
-                  <div className="grid grid-cols-2 gap-6">
-                    <div>
-                      <div className="text-sm text-muted-foreground mb-1">Total Hours</div>
-                      <div className="text-3xl font-bold text-blue-600 dark:text-blue-400">
-                        {formatTime(calculation.totalHours)}
-                      </div>
+              {/* Live calculation display (always shown so user can verify values for past dates) */}
+              <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/30 dark:to-indigo-950/30 p-6 rounded-lg border-2 border-blue-200 dark:border-blue-800">
+                <h3 className="text-sm font-semibold text-muted-foreground mb-3">Summary</h3>
+                <div className="grid grid-cols-2 gap-6">
+                  <div>
+                    <div className="text-sm text-muted-foreground mb-1">Total Hours</div>
+                    <div className="text-3xl font-bold text-blue-600 dark:text-blue-400">
+                      {calculation.totalHours.toFixed ? calculation.totalHours.toFixed(2) : calculation.totalHours}
                     </div>
-                    <div>
-                      <div className="text-sm text-muted-foreground mb-1">Total Earnings</div>
-                      <div className="text-3xl font-bold text-green-600 dark:text-green-400">
-                        {formatCurrency(calculation.totalEarnings)}
-                      </div>
+                  </div>
+                  <div>
+                    <div className="text-sm text-muted-foreground mb-1">Estimated Earnings</div>
+                    <div className="text-3xl font-bold text-green-600 dark:text-green-300">
+                      ${calculation.totalEarnings.toFixed ? calculation.totalEarnings.toFixed(2) : calculation.totalEarnings}
                     </div>
                   </div>
                 </div>
-              )}
+                {calculation.totalHours === 0 && (
+                  <p className="text-xs text-muted-foreground mt-2">No hours computed yet — ensure start and end times are filled or enter manual hours.</p>
+                )}
+              </div>
             </>
           )}
 

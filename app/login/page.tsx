@@ -10,11 +10,13 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Alert, AlertDescription } from "@/components/ui/alert"
+import GoogleSignInButton from '@/components/google-signin-button'
 
 export default function LoginPage() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [error, setError] = useState("")
+  const [conflictEmail, setConflictEmail] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const router = useRouter()
 
@@ -46,6 +48,30 @@ export default function LoginPage() {
     }
   }
 
+  // Detect account_conflict from query params to show a helpful message
+  useEffect(() => {
+    try {
+      const params = new URLSearchParams(window.location.search)
+      const err = params.get('error')
+      const conflict = params.get('conflictEmail')
+      if (err === 'account_conflict') {
+        setError('You are signed in as a different user. Please sign out and sign in with the correct account to link.')
+        if (conflict) setConflictEmail(conflict)
+      }
+    } catch {}
+  }, [])
+
+  const handleSignOut = async () => {
+    try {
+      await fetch('/api/auth/logout', { method: 'POST', credentials: 'same-origin' })
+      // Reload to clear client-side state and show fresh login
+      window.location.href = '/login'
+    } catch {
+      // best-effort
+      window.location.href = '/login'
+    }
+  }
+
   // If already logged in (cookie from server or token in localStorage), redirect away from login
   // This is a light client-side guard; the middleware is the main gate.
   // With HttpOnly cookie we can't reliably read it client-side; optional: could call a /api/me endpoint.
@@ -62,7 +88,15 @@ export default function LoginPage() {
           <form onSubmit={handleSubmit} className="space-y-4">
             {error && (
               <Alert variant="destructive">
-                <AlertDescription>{error}</AlertDescription>
+                <AlertDescription>
+                  {error}
+                  {conflictEmail && (
+                    <div className="mt-2 text-sm">The Google account attempting to link is: <strong>{conflictEmail}</strong></div>
+                  )}
+                  <div className="mt-3">
+                    <Button variant="outline" onClick={handleSignOut}>Sign out current session</Button>
+                  </div>
+                </AlertDescription>
               </Alert>
             )}
 
@@ -99,6 +133,10 @@ export default function LoginPage() {
               {loading ? "Signing in..." : "Sign In"}
             </Button>
           </form>
+
+          <div className="mt-4">
+            <GoogleSignInButton redirectTo="/" />
+          </div>
 
           <div className="mt-6 text-center">
             <p className="text-sm text-muted-foreground">

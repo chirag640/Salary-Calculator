@@ -137,47 +137,48 @@ export function QuickStartTimer({ selectedDate, onEntryCreated, onTimerStopped, 
   // Show running timer interface
   if (activeEntryId && isRunning) {
     return (
-      <Card className={`border-green-500 ${className}`}>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
+      <Card className={`border-2 border-green-500 shadow-lg ${className}`}>
+        <CardHeader className="pb-3">
+          <CardTitle className="flex items-center gap-2 text-lg">
             <Clock className="h-5 w-5 text-green-500 animate-pulse" />
             Timer Running
           </CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className="space-y-4 px-4 pb-4">
           {/* Timer Display */}
-          <div className="flex items-center justify-center">
-            <div className="font-mono text-4xl font-bold text-green-600">
+          <div className="flex items-center justify-center py-2">
+            <div className="font-mono text-3xl sm:text-4xl md:text-5xl font-bold text-green-600 dark:text-green-400">
               {formatTimerDisplay(elapsedSeconds)}
             </div>
           </div>
 
-          {/* Hourly Rate Display */}
-          <div>
-            <Label>Hourly Rate</Label>
-            <div className="p-3 rounded-lg bg-muted text-lg font-semibold">
-              ${hourlyRate.toFixed(2)} / hr
+          {/* Hourly Rate & Earnings - Side by side on mobile */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label className="text-xs">Hourly Rate</Label>
+              <div className="p-2 md:p-3 rounded-lg bg-muted text-base md:text-lg font-semibold">
+                ${hourlyRate.toFixed(2)}/hr
+              </div>
+            </div>
+            <div>
+              <Label className="text-xs">Current Earnings</Label>
+              <div className="p-2 md:p-3 rounded-lg bg-green-50 dark:bg-green-950/30 text-base md:text-lg font-bold text-green-600 dark:text-green-400">
+                ${((elapsedSeconds / 3600) * hourlyRate).toFixed(2)}
+              </div>
             </div>
           </div>
 
           {/* Work Description */}
           <div>
-            <Label htmlFor="quick-work-desc">Work Description (Optional)</Label>
+            <Label htmlFor="quick-work-desc" className="text-sm">Work Description (Optional)</Label>
             <Textarea
               id="quick-work-desc"
               value={workDescription}
               onChange={(e) => setWorkDescription(e.target.value)}
               placeholder="What are you working on?"
-              rows={3}
+              rows={2}
+              className="mt-1 resize-none text-sm"
             />
-          </div>
-
-          {/* Current Earnings */}
-          <div className="bg-green-50 dark:bg-green-950/30 p-4 rounded-lg">
-            <div className="text-sm text-muted-foreground">Current Earnings</div>
-            <div className="text-2xl font-bold text-green-600">
-              ${((elapsedSeconds / 3600) * hourlyRate).toFixed(2)}
-            </div>
           </div>
 
           {/* Stop Button */}
@@ -185,7 +186,7 @@ export function QuickStartTimer({ selectedDate, onEntryCreated, onTimerStopped, 
             onClick={handleStopTimer}
             disabled={timerLoading}
             variant="destructive"
-            className="w-full gap-2"
+            className="w-full gap-2 h-12 text-base font-semibold"
             size="lg"
           >
             <Square className="h-5 w-5" />
@@ -201,7 +202,7 @@ export function QuickStartTimer({ selectedDate, onEntryCreated, onTimerStopped, 
     <Button
       onClick={handleQuickStart}
       disabled={loading || hourlyRate <= 0}
-      className={`gap-2 ${className}`}
+      className={`gap-2 w-full sm:w-auto h-12 text-base font-semibold ${className}`}
       size="lg"
     >
       <Play className="h-5 w-5" />

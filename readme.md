@@ -49,12 +49,64 @@ This repository is a Next.js application with Tailwind CSS for styling, Radix UI
 
 ## Features
 
+### ⏱️ Time Tracking
+- **Quick Start Timer** — Start tracking with one click
 - Log time entries (time-in / time-out) and manual hours
-- Automatic hourly-rate handling via profile settings and salary increments
-- Leave tracking with leave types and optional reasons
-- Summary dashboard with charts and project breakdowns (uses Recharts)
-- Export and invoice generation endpoints
-- Glassmorphic design theme with accessible focus states and reduced-motion support
+- Timer states: Running → Paused (resumable) → Stopped (final)
+- Smart timer logic prevents resuming stopped timers
+
+### 💰 Salary & Invoicing
+- Automatic hourly-rate handling via profile settings
+- Salary increment tracking with effective dates
+- Overtime calculations
+- Invoice generation with PDF export
+- Custom salary periods and rates
+
+### 📊 Analytics & Reports
+- Summary dashboard with interactive charts (Recharts)
+- Project breakdowns and time distribution
+- Weekly/monthly reports
+- AI-powered report generation
+- Export to CSV/JSON
+
+### 📅 Integrations
+- **Google Calendar** — Import events as time entries
+- Smart event filtering and mapping rules
+- OAuth2 secure authentication
+- Automatic periodic sync
+- GitHub (Coming Soon)
+- Jira (Coming Soon)
+
+### 🔔 Notifications
+- In-app notification center
+- Email notifications for important events
+- Scheduled weekly summary reports
+- Daily/weekly reminders
+- Customizable notification preferences
+
+### 📱 Mobile & PWA
+- Mobile-first responsive design
+- Progressive Web App (installable)
+- Bottom navigation for mobile
+- Touch-optimized quick actions menu
+- Offline support with service worker
+
+### 🎨 Design & Accessibility
+- Glassmorphic design theme
+- Dark mode with system preference detection
+- High contrast mode support
+- Accessible focus states
+- Reduced-motion support
+- WCAG 2.1 compliant
+
+### 🔒 Security
+- JWT-based authentication
+- CSRF protection
+- bcrypt password hashing
+- OAuth2 token encryption
+- Rate limiting
+- Audit logging
+- Security headers (CSP, HSTS)
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
@@ -99,16 +151,65 @@ cd Salary-Calculator
 pnpm install
 ```
 
-3. Create .env.local (if needed)
+3. Install additional dependencies
 
-This project contains APIs for profile, time-entries, and auth that may require environment variables for external services. For local dev, none are strictly required unless you wire in SMTP, OpenAI, or cloud DB credentials. Example variables (if you plan to connect a DB or provider):
-
-```
-MONGODB_URI=your_mongo_connection_string
-JWT_SECRET=supersecret
+```powershell
+pnpm install nodemailer date-fns googleapis
+pnpm install --save-dev @types/nodemailer @types/jsonwebtoken
 ```
 
-4. Start dev server
+4. Create .env.local
+
+Copy the example file and fill in your values:
+
+```powershell
+copy .env.example .env.local
+```
+
+Generate secure secrets:
+
+```powershell
+node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+```
+
+Run this command 3 times and use the outputs for `JWT_SECRET`, `CSRF_SECRET`, and `ENCRYPTION_KEY`.
+
+Minimum required variables:
+```env
+MONGODB_URI=mongodb://localhost:27017/timetracker
+MONGODB_DB=timetracker
+JWT_SECRET=your-64-char-hex-string
+CSRF_SECRET=your-64-char-hex-string
+ENCRYPTION_KEY=your-64-char-hex-string
+NEXT_PUBLIC_APP_URL=http://localhost:3000
+```
+
+Optional (for notifications):
+```env
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USER=your-email@gmail.com
+SMTP_PASSWORD=your-gmail-app-password
+```
+
+Optional (for Google Calendar):
+```env
+GOOGLE_CLIENT_ID=your-client-id.apps.googleusercontent.com
+GOOGLE_CLIENT_SECRET=your-client-secret
+GOOGLE_REDIRECT_URI=http://localhost:3000/api/integrations/google/callback
+```
+
+**📚 For detailed setup instructions, see [INSTALLATION.md](INSTALLATION.md)**
+
+5. Start MongoDB
+
+```powershell
+net start MongoDB
+```
+
+Or use MongoDB Atlas (cloud) — see [INSTALLATION.md](INSTALLATION.md) for details.
+
+6. Start dev server
 
 ```powershell
 pnpm dev
@@ -178,12 +279,51 @@ Please keep changes focused and include screenshots for style/UI changes.
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
-## Roadmap / Ideas
+## 📖 Documentation
 
-- Add a theme intensity toggle (Minimal / Standard / Vibrant)
-- Add visual regression tests (Playwright/Chromatic)
-- Add multi-tenant export and CSV templates
-- Add authentication providers (OAuth)
+- **[INSTALLATION.md](INSTALLATION.md)** — Complete setup guide
+- **[SECURITY_AUDIT.md](SECURITY_AUDIT.md)** — Security best practices and audit
+- **[PROJECT_IMPROVEMENTS.md](PROJECT_IMPROVEMENTS.md)** — Feature suggestions and enhancements
+- **[GOOGLE_CALENDAR_SETUP.md](GOOGLE_CALENDAR_SETUP.md)** — Google Calendar integration guide
+- **[TIMER_FEATURE.md](docs/TIMER_FEATURE.md)** — Timer feature documentation
+- **[TIMER_MIGRATION.md](docs/TIMER_MIGRATION.md)** — Timer migration guide
+
+## 🚀 Roadmap
+
+### ✅ Completed
+- ✅ Quick Start Timer with pause/resume
+- ✅ PWA support with offline mode
+- ✅ Mobile-first responsive design
+- ✅ Dark mode with system detection
+- ✅ Notifications system (email + in-app)
+- ✅ Google Calendar integration
+- ✅ OAuth2 authentication
+- ✅ Invoice generator
+- ✅ AI report generation
+
+### 🔄 In Progress
+- ⚡ Complete integration management UI
+- ⚡ API endpoints for event preview/import
+- ⚡ Mapping rules builder interface
+- ⚡ Background job worker for automated sync
+
+### 📋 Planned
+- 🔜 GitHub integration (import commits/PRs as entries)
+- 🔜 Jira integration (import issues/worklogs)
+- 🔜 Team collaboration features
+- 🔜 Two-factor authentication (2FA)
+- 🔜 Advanced analytics dashboard
+- 🔜 Keyboard shortcuts
+- 🔜 Drag & drop time entries
+- 🔜 Bulk actions (edit/delete multiple)
+- 🔜 Entry templates
+- 🔜 Pomodoro timer
+- 🔜 Budget tracking per project
+- 🔜 Voice input for logging
+- 🔜 Browser extension
+- 🔜 Native mobile app (Capacitor)
+
+**See [PROJECT_IMPROVEMENTS.md](PROJECT_IMPROVEMENTS.md) for detailed roadmap and suggestions.**
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 

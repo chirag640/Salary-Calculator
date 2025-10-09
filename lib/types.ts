@@ -72,10 +72,12 @@ export interface PeriodSummary {
 export interface User {
   _id?: string
   email: string
-  password: string
+  password?: string // Optional now (for OAuth-only users)
   name: string
+  isVerified: boolean // Email verification status
   passwordResetToken?: string // hashed token (sha256)
   passwordResetExpires?: Date // expiry timestamp
+  googleId?: string // Google OAuth ID
   contact?: {
     phone?: string
     addressLine1?: string
@@ -97,6 +99,45 @@ export interface AuthUser {
   _id: string
   email: string
   name: string
+  isVerified?: boolean
+}
+
+// OTP verification for registration and magic links
+export interface AuthOTP {
+  _id?: string
+  email: string
+  otpHash: string // bcrypt hash of the OTP code
+  expiresAt: Date
+  used: boolean
+  attempts: number
+  purpose: "registration" | "login" | "link-account" // Purpose of OTP
+  createdAt: Date
+}
+
+// OAuth integrations storage
+export interface OAuthIntegration {
+  _id?: string
+  userId: string
+  provider: "google" // Extensible for other providers
+  providerId: string // Provider's user ID
+  email: string // Email from provider
+  accessToken?: string // Encrypted token
+  refreshToken?: string // Encrypted token
+  tokenExpiry?: Date
+  scopes: string[]
+  createdAt: Date
+  updatedAt: Date
+}
+
+// Session/refresh token storage (optional)
+export interface RefreshToken {
+  _id?: string
+  userId: string
+  tokenHash: string // bcrypt hash of refresh token
+  expiresAt: Date
+  createdAt: Date
+  deviceInfo?: string
+  ipAddress?: string
 }
 
 export interface LoginCredentials {

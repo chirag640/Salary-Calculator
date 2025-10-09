@@ -6,8 +6,8 @@ import { MongoClient, type Db } from "mongodb"
 // connecting to MongoDB Atlas from environments with OpenSSL
 // incompatibilities.
 const baseOptions: Record<string, any> = {
-  // short server selection timeout for fast failures in dev
-  serverSelectionTimeoutMS: 10000,
+  // slightly longer server selection timeout to tolerate DNS/SRV lookups
+  serverSelectionTimeoutMS: 20000,
   connectTimeoutMS: 10000,
 }
 
@@ -47,9 +47,18 @@ function getClientPromise(): Promise<MongoClient> {
 
     if (!globalWithMongo._mongoClientPromise) {
       const client = new MongoClient(uri, options)
-      // attach a catch to log connection errors early
+      // attach a catch to log connection errors early with helpful SRV hints
       globalWithMongo._mongoClientPromise = client.connect().catch((err) => {
-        console.error("[mongodb] connect error:", err)
+        try {
+          // eslint-disable-next-line no-console
+          console.error("[mongodb] connect error:", err)
+          // If the error looks like an SRV DNS timeout, give a friendly hint
+          if (err && err.message && /querySrv|_mongodb\._tcp/i.test(err.message)) {
+            console.error("[mongodb] It looks like an SRV DNS lookup failed. If you're using an Atlas SRV URI (mongodb+srv://), ensure your network allows DNS SRV lookups and the hostname is correct. Consider switching to a standard connection string or increasing DNS timeout. Example host: ", uri)
+          }
+        } catch (logErr) {
+          console.error("[mongodb] connect error (and failed to log extra details):", logErr)
+        }
         throw err
       })
     }
@@ -59,7 +68,15 @@ function getClientPromise(): Promise<MongoClient> {
   if (!clientPromise) {
     const client = new MongoClient(uri, options)
     clientPromise = client.connect().catch((err) => {
-      console.error("[mongodb] connect error:", err)
+      try {
+        console.error("[mongodb] connect error:", err)
+        if (err && err.message && /querySrv|_mongodb\._tcp/i.test(err.message)) {
+          console.error("[mongodb] SRV lookup failed for URI:", uri)
+          console.error("[mongodb] If using mongodb+srv:// verify DNS and that your environment supports SRV lookups. You can also try a standard connection string (mongodb://host:port) to bypass SRV.")
+        }
+      } catch (logErr) {
+        console.error("[mongodb] connect error (and failed to log details):", logErr)
+      }
       throw err
     })
   }

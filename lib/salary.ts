@@ -69,6 +69,26 @@ export function pickEffectiveSalaryRecord(records: SalaryRecord[], date: string)
   return effective
 }
 
+export function pickNearestSalaryRecord(records: SalaryRecord[], date: string): SalaryRecord | undefined {
+  if (!records || records.length === 0) return undefined
+  try {
+    const target = new Date(date + 'T00:00:00').getTime()
+    let best: SalaryRecord | undefined = undefined
+    let bestDiff = Number.POSITIVE_INFINITY
+    for (const rec of records) {
+      const t = new Date(rec.effectiveFrom + 'T00:00:00').getTime()
+      const diff = Math.abs(t - target)
+      if (diff < bestDiff) {
+        bestDiff = diff
+        best = rec
+      }
+    }
+    return best
+  } catch {
+    return records[records.length - 1]
+  }
+}
+
 export async function getEffectiveHourlyRateForDate(
   db: Db,
   userId: string,
@@ -83,7 +103,22 @@ export async function getEffectiveHourlyRateForDate(
   const overtime: OvertimeConfig | undefined = user.overtime
   const effective = pickEffectiveSalaryRecord(salaryHistory, date)
   if (!effective) {
-    const val = { hourlyRate: 0, working: workingConfig, overtime }
+    // If no salary record exactly covers the requested date, try to pick the
+    // nearest salary record (closest effectiveFrom) and use its rate. This is
+    // a pragmatic fallback to avoid saving $0 earnings when a nearby salary
+    // applies. If no records exist, then fall back to user's defaultHourlyRate.
+    const nearest = pickNearestSalaryRecord(salaryHistory, date)
+    if (nearest) {
+      const rate = hourlyFromSalary(nearest.salaryType, nearest.amount, nearest.working)
+      const val = { hourlyRate: rate, working: nearest.working, overtime }
+      setCache(userId, date, val)
+      return val
+    }
+
+    const fallbackRate = (user && typeof (user.defaultHourlyRate) === 'number' && user.defaultHourlyRate > 0)
+      ? user.defaultHourlyRate
+      : 0
+    const val = { hourlyRate: fallbackRate, working: workingConfig, overtime }
     setCache(userId, date, val)
     return val
   }

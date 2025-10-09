@@ -23,14 +23,17 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const [open, setOpen] = useState(false)
   const pathname = usePathname()
   const isAuthRoute = pathname?.startsWith('/login') || pathname?.startsWith('/register')
+  // Call hook at component top-level (rules of hooks)
+  const { fetchWithCsrf } = useFetchWithCsrf()
 
   const logout = async () => {
     try {
-      const { fetchWithCsrf } = useFetchWithCsrf()
       await fetchWithCsrf("/api/auth/logout", { method: "POST" })
       // Cookie is HttpOnly; server cleared it. Just navigate.
       router.push("/login")
-    } catch {}
+    } catch (e) {
+      console.error('Logout error:', e)
+    }
   }
 
   const NavItems = () => (

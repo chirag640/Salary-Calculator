@@ -30,9 +30,36 @@ export async function comparePassword(password: string, hashedPassword: string):
 }
 
 export function getTokenFromRequest(request: Request): string | null {
+  // 1) Check Authorization header (Bearer token)
   const authHeader = request.headers.get("authorization")
   if (authHeader && authHeader.startsWith("Bearer ")) {
     return authHeader.substring(7)
   }
+
+  // 2) If Next.js NextRequest is passed, it may expose cookies via request.cookies
+  try {
+    const anyReq: any = request
+    if (anyReq?.cookies && typeof anyReq.cookies.get === 'function') {
+      const cookie = anyReq.cookies.get('auth-token')
+      if (cookie && typeof cookie === 'object') return cookie.value || null
+      if (typeof cookie === 'string') return cookie || null
+    }
+  } catch (e) {
+    // ignore and fallback to header parsing
+  }
+
+  // 3) Fallback: parse raw Cookie header
+  const cookieHeader = request.headers.get('cookie')
+  if (cookieHeader) {
+    const match = cookieHeader.match(/(?:^|; )auth-token=([^;]+)/)
+    if (match) return decodeURIComponent(match[1])
+  }
+
   return null
+}
+
+export function getUserFromSession(request: Request): AuthUser | null {
+  const token = getTokenFromRequest(request)
+  if (!token) return null
+  return verifyToken(token)
 }
