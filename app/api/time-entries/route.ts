@@ -131,11 +131,16 @@ export async function POST(request: NextRequest) {
     // Overlapping prevention: only if not leave, not holiday work, and we have a time range
     // Skip overlap check for holiday work entries as they have special semantics (base 9h + optional extra)
   if (timeIn && timeOut && !leave?.isLeave && !isHolidayWork) {
+      // Ignore soft-deleted entries when checking for overlaps
       const overlap = await db.collection<TimeEntry>("timeEntries").findOne({
         userId,
         date,
         $or: [
-          { timeIn: { $lt: timeOut }, timeOut: { $gt: timeIn } }, // simplistic textual comparison (HH:MM) works lexicographically
+          { deletedAt: { $exists: false } },
+          { deletedAt: null },
+        ],
+        $and: [
+          { $or: [ { timeIn: { $lt: timeOut }, timeOut: { $gt: timeIn } } ] }, // simplistic textual comparison (HH:MM) works lexicographically
         ],
       })
       if (overlap) {
@@ -201,8 +206,10 @@ export async function POST(request: NextRequest) {
   createdAt: new Date(),
       updatedAt: new Date(),
       deletedAt: null,
+  // Previously supported syncToGoogle; calendar sync has been removed.
     }
     const result = await db.collection<TimeEntry>("timeEntries").insertOne(doc)
+    
     return NextResponse.json({ ...doc, _id: result.insertedId.toString() })
     } catch (error: any) {
       console.error("Error creating time entry:", error)

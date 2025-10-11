@@ -70,10 +70,6 @@ This repository is a Next.js application with Tailwind CSS for styling, Radix UI
 - Export to CSV/JSON
 
 ### 📅 Integrations
-- **Google Calendar** — Import events as time entries
-- Smart event filtering and mapping rules
-- OAuth2 secure authentication
-- Automatic periodic sync
 - GitHub (Coming Soon)
 - Jira (Coming Soon)
 
@@ -192,12 +188,7 @@ SMTP_USER=your-email@gmail.com
 SMTP_PASSWORD=your-gmail-app-password
 ```
 
-Optional (for Google Calendar):
-```env
-GOOGLE_CLIENT_ID=your-client-id.apps.googleusercontent.com
-GOOGLE_CLIENT_SECRET=your-client-secret
-GOOGLE_REDIRECT_URI=http://localhost:3000/api/integrations/google/callback
-```
+<!-- Google Calendar integration removed from this repository. -->
 
 **📚 For detailed setup instructions, see [INSTALLATION.md](INSTALLATION.md)**
 
@@ -284,7 +275,7 @@ Please keep changes focused and include screenshots for style/UI changes.
 - **[INSTALLATION.md](INSTALLATION.md)** — Complete setup guide
 - **[SECURITY_AUDIT.md](SECURITY_AUDIT.md)** — Security best practices and audit
 - **[PROJECT_IMPROVEMENTS.md](PROJECT_IMPROVEMENTS.md)** — Feature suggestions and enhancements
-- **[GOOGLE_CALENDAR_SETUP.md](GOOGLE_CALENDAR_SETUP.md)** — Google Calendar integration guide
+<!-- Google Calendar setup doc removed -->
 - **[TIMER_FEATURE.md](docs/TIMER_FEATURE.md)** — Timer feature documentation
 - **[TIMER_MIGRATION.md](docs/TIMER_MIGRATION.md)** — Timer migration guide
 
@@ -296,7 +287,7 @@ Please keep changes focused and include screenshots for style/UI changes.
 - ✅ Mobile-first responsive design
 - ✅ Dark mode with system detection
 - ✅ Notifications system (email + in-app)
-- ✅ Google Calendar integration
+<!-- Google Calendar integration removed -->
 - ✅ OAuth2 authentication
 - ✅ Invoice generator
 - ✅ AI report generation

@@ -135,8 +135,21 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
       return NextResponse.json({ error: "Time entry not found" }, { status: 404 })
     }
 
-    const deletedAt = new Date()
-    await collection.updateOne({ _id: entry._id, userId }, { $set: { deletedAt, updatedAt: new Date() } })
+    const { searchParams } = new URL(request.url)
+    const hard = searchParams.get('hard') === 'true'
+
+    if (hard) {
+      // Permanently remove the document
+      try {
+        await collection.deleteOne({ _id: entry._id, userId })
+      } catch (e) {
+        console.error('Failed to hard delete entry', e)
+        return NextResponse.json({ error: 'Failed to delete time entry' }, { status: 500 })
+      }
+    } else {
+      const deletedAt = new Date()
+      await collection.updateOne({ _id: entry._id, userId }, { $set: { deletedAt, updatedAt: new Date() } })
+    }
 
     const restoreToken = Buffer.from(JSON.stringify({ id, ts: Date.now() })).toString('base64')
     return NextResponse.json({ success: true, id, restoreToken, expiresInMs: 15_000 })

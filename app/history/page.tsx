@@ -113,7 +113,8 @@ export default function HistoryPage() {
       setEntries(prev => prev.filter(e => e._id !== id))
       setHistoryItems(prev => prev.filter(e => e._id !== id))
       const token = csrfToken || (await ensureCsrfToken())
-      const response = await fetch(`/api/time-entries/${id}`, { 
+      const url = `/api/time-entries/${id}${showDeleted ? '?hard=true' : ''}`
+      const response = await fetch(url, { 
         method: "DELETE", 
         headers: token ? { "x-csrf-token": token } : {}, 
         credentials: "same-origin" 

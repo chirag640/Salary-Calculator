@@ -250,7 +250,8 @@ export default function TimeTracker() {
       setEntries(prev => prev.filter(e => e._id !== id))
       setHistoryItems(prev => prev.filter(e => e._id !== id))
   const token = csrfToken || (await ensureCsrfToken())
-  const response = await fetch(`/api/time-entries/${id}`, { method: "DELETE", headers: token ? { "x-csrf-token": token } : {}, credentials: "same-origin" })
+  const url = `/api/time-entries/${id}${showDeleted ? '?hard=true' : ''}`
+  const response = await fetch(url, { method: "DELETE", headers: token ? { "x-csrf-token": token } : {}, credentials: "same-origin" })
       if (!response.ok) {
         await fetchEntries()
         toast({
@@ -347,6 +348,21 @@ export default function TimeTracker() {
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [selectedDate, toast])
 
+  // Listen for custom navigate-to-date event from calendar panel
+  useEffect(() => {
+    const handleNavigateToDate = (e: CustomEvent) => {
+      if (e.detail && e.detail instanceof Date) {
+        setSelectedDate(e.detail)
+        toast({
+          title: "Navigated to event date",
+          description: format(e.detail, "EEEE, MMMM d, yyyy")
+        })
+      }
+    }
+    window.addEventListener('navigate-to-date', handleNavigateToDate as any)
+    return () => window.removeEventListener('navigate-to-date', handleNavigateToDate as any)
+  }, [toast])
+
   // Calculate totals for selected date
   const todayEntries = entries.filter((entry) => entry.date === selectedDateString)
   const todayTotalHours = todayEntries.reduce((sum, entry) => sum + entry.totalHours, 0)
@@ -396,20 +412,10 @@ export default function TimeTracker() {
             {isToday ? "Today" : "Jump to Today"}
           </Button>
         </div>
-        {/* Date indicator */}
-        <div className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
-          <span className={cn("font-medium", isToday && "text-primary", isPastDate && "text-orange-500")}>
-            {isToday ? "📍 Today" : isPastDate ? "📅 Past Date" : "📆 Future Date"}
-          </span>
-          <span>•</span>
-          <span>{format(selectedDate, "EEEE, MMMM d, yyyy")}</span>
-        </div>
-        {/* Keyboard shortcuts hint */}
-        <div className="hidden md:block mt-1 text-xs text-muted-foreground/70">
-          Shortcuts: <kbd className="px-1 py-0.5 bg-muted rounded">T</kbd> = Today • <kbd className="px-1 py-0.5 bg-muted rounded">Ctrl+←</kbd> Previous • <kbd className="px-1 py-0.5 bg-muted rounded">Ctrl+→</kbd> Next
-        </div>
       </div>
-
+      
+      {/* Calendar events panel removed from main screen per request */}
+  
       {/* Summary for Selected Date */}
       <motion.div variants={fadeInUp} className="mb-6">
         <Card className={cn("hover:shadow-lg transition-all", 

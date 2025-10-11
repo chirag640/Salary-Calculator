@@ -53,7 +53,6 @@
     "framer-motion": "^12.23.13",
     "gcp-metadata": "latest",
     "geist": "^1.3.1",
-    "googleapis": "^161.0.0",
     "input-otp": "1.4.1",
     "jsonwebtoken": "latest",
     "kerberos": "latest",

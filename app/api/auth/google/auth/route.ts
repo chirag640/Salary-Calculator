@@ -1,6 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server"
 export const runtime = "nodejs"
-import { google } from "googleapis"
 import { generateOAuthState, isValidRedirectUrl } from "@/lib/validation/auth"
 
 export async function GET(request: NextRequest) {
@@ -39,15 +38,21 @@ export async function GET(request: NextRequest) {
     // Generate secure state with CSRF protection
     const state = generateOAuthState({ returnTo })
 
-    // Create OAuth2 client for sign-in
-    const oauth2Client = new google.auth.OAuth2(clientId, clientSecret, redirectUri)
-    const authUrl = oauth2Client.generateAuthUrl({
-      access_type: "offline",
-      scope: ["openid", "https://www.googleapis.com/auth/userinfo.profile", "https://www.googleapis.com/auth/userinfo.email"],
+    // Build the Google OAuth authorization URL manually to avoid the googleapis dependency.
+    // Use the standard OAuth2 endpoint and request only sign-in scopes (openid/profile/email).
+    const scopes = ["openid", "https://www.googleapis.com/auth/userinfo.profile", "https://www.googleapis.com/auth/userinfo.email"]
+    const params = new URLSearchParams({
+      client_id: clientId,
+      redirect_uri: redirectUri,
+      response_type: 'code',
+      scope: scopes.join(' '),
+      access_type: 'offline',
+      prompt: 'select_account',
+      include_granted_scopes: 'true',
       state,
-      prompt: "select_account",
-      include_granted_scopes: true,
     })
+
+    const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`
 
     console.log("Redirecting to Google OAuth (auth):", authUrl.replace(/(client_id=[^&]+)/, "client_id=REDACTED"))
     return NextResponse.redirect(authUrl)

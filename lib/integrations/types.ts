@@ -1,5 +1,4 @@
-// Google Calendar Integration Types
-export type IntegrationType = 'GOOGLE_CALENDAR' | 'GITHUB' | 'GITLAB' | 'JIRA' | 'TRELLO'
+export type IntegrationType = 'GITHUB' | 'GITLAB' | 'JIRA' | 'TRELLO'
 
 export type IntegrationStatus = 'CONNECTED' | 'DISCONNECTED' | 'ERROR' | 'EXPIRED'
 
@@ -49,7 +48,7 @@ export interface IntegrationImportSettings {
   defaultHourlyRate?: number
   
   // Calendar-specific
-  calendarIds?: string[] // Which calendars to sync
+  // calendarIds?: string[] // (previously used for Google Calendar) removed
   
   // Time range
   lookbackDays?: number // How many days in the past to import
@@ -98,50 +97,6 @@ export interface EventMapping {
   updatedAt: Date
 }
 
-export interface GoogleCalendarEvent {
-  id: string
-  summary: string // Title
-  description?: string
-  start: {
-    dateTime?: string
-    date?: string
-    timeZone?: string
-  }
-  end: {
-    dateTime?: string
-    date?: string
-    timeZone?: string
-  }
-  status: 'confirmed' | 'tentative' | 'cancelled'
-  attendees?: Array<{
-    email: string
-    displayName?: string
-    responseStatus: 'needsAction' | 'declined' | 'tentative' | 'accepted'
-    self?: boolean
-  }>
-  creator?: {
-    email: string
-    displayName?: string
-  }
-  organizer?: {
-    email: string
-    displayName?: string
-  }
-  location?: string
-  hangoutLink?: string
-  recurringEventId?: string
-  transparency?: 'transparent' | 'opaque' // Free/Busy
-}
-
-export interface GoogleCalendar {
-  id: string
-  summary: string // Calendar name
-  description?: string
-  backgroundColor?: string
-  foregroundColor?: string
-  primary?: boolean
-  accessRole: 'freeBusyReader' | 'reader' | 'writer' | 'owner'
-}
 
 export interface ImportPreview {
   totalEvents: number
@@ -151,7 +106,7 @@ export interface ImportPreview {
   totalHours: number
   estimatedEarnings: number
   events: Array<{
-    externalEvent: GoogleCalendarEvent
+    externalEvent: any
     mapping: Partial<EventMapping>
     willImport: boolean
     skipReason?: string
@@ -181,16 +136,11 @@ export interface OAuthConfig {
   tokenUrl: string
 }
 
-export const GOOGLE_CALENDAR_SCOPES = [
-  'https://www.googleapis.com/auth/calendar.readonly',
-  'https://www.googleapis.com/auth/userinfo.email',
-  'https://www.googleapis.com/auth/userinfo.profile',
-]
-
+// Generic integration types and minimal OAuth config
 export const GOOGLE_OAUTH_CONFIG: Partial<OAuthConfig> = {
   authUrl: 'https://accounts.google.com/o/oauth2/v2/auth',
   tokenUrl: 'https://oauth2.googleapis.com/token',
-  scopes: GOOGLE_CALENDAR_SCOPES,
+  scopes: [],
 }
 
 // Mapping rules for automatic categorization

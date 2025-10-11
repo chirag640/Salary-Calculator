@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import GoogleSignInButton from '@/components/google-signin-button'
+import GoogleSignInButton from '../../components/google-signin-button'
 
 export default function LoginPage() {
   const [email, setEmail] = useState("")

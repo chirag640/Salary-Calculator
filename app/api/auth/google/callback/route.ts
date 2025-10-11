@@ -1,11 +1,12 @@
 import { type NextRequest, NextResponse } from "next/server"
 export const runtime = "nodejs"
-import { exchangeCodeForTokens, getUserProfile } from "@/lib/integrations/google-calendar"
+import { exchangeCodeForTokens, getUserProfile, refreshAccessToken } from '@/lib/auth/google'
 import { connectToDatabase } from "@/lib/mongodb"
 import { generateToken, verifyToken } from "@/lib/auth"
 import { verifyOAuthState } from "@/lib/validation/auth"
 import { encrypt } from "@/lib/encryption"
 import { ObjectId } from "mongodb"
+import { updateIntegrationTokens, getIntegration } from '@/lib/integrations/db'
 
 export async function GET(request: NextRequest) {
   try {
@@ -31,7 +32,7 @@ export async function GET(request: NextRequest) {
   const tokens = await exchangeCodeForTokens(code, authRedirect)
 
     // Get user profile from Google
-  const profile = await getUserProfile(tokens.accessToken, authRedirect)
+  const profile = await getUserProfile(tokens.accessToken)
 
     const { db } = await connectToDatabase()
 
@@ -67,33 +68,34 @@ export async function GET(request: NextRequest) {
               }
             )
 
-            // Store OAuth integration
-            const accessTokenEncrypted = tokens.accessToken ? encrypt(tokens.accessToken) : undefined
-            const refreshTokenEncrypted = tokens.refreshToken ? encrypt(tokens.refreshToken) : undefined
+        // Store OAuth integration (used for auth token refresh and account linking)
+        const accessTokenEncrypted = tokens.accessToken ? encrypt(tokens.accessToken) : undefined
+        const refreshTokenEncrypted = tokens.refreshToken ? encrypt(tokens.refreshToken) : undefined
+        const oauthScopes = ["openid", "profile", "email"]
 
-            await db.collection("oauth_integrations").updateOne(
-              { userId: user._id.toString(), provider: "google" },
-              {
-                $set: {
-                  userId: user._id.toString(),
-                  provider: "google",
-                  providerId: profile.id,
-                  email: profile.email,
-                  accessToken: accessTokenEncrypted,
-                  refreshToken: refreshTokenEncrypted,
-                  tokenExpiry: tokens.expiryDate ? new Date(tokens.expiryDate) : undefined,
-                  scopes: ["openid", "profile", "email"], // Default OAuth scopes
-                  updatedAt: new Date(),
-                },
-                $setOnInsert: {
-                  createdAt: new Date(),
-                },
-              },
-              { upsert: true }
-            )
+        await db.collection("oauth_integrations").updateOne(
+          { userId: user._id.toString(), provider: "google" },
+          {
+            $set: {
+              userId: user._id.toString(),
+              provider: "google",
+              providerId: profile.id,
+              email: profile.email,
+              accessToken: accessTokenEncrypted,
+              refreshToken: refreshTokenEncrypted,
+              tokenExpiry: tokens.expiryDate ? new Date(tokens.expiryDate) : undefined,
+              scopes: oauthScopes,
+              updatedAt: new Date(),
+            },
+            $setOnInsert: {
+              createdAt: new Date(),
+            },
+          },
+          { upsert: true }
+        )
 
-            // Redirect with success message
-            return NextResponse.redirect(`${baseUrl}${returnTo}?linked=google`)
+        // Redirect with success message after linking
+        return NextResponse.redirect(`${baseUrl}${returnTo}?linked=google`)
           } else {
             // Session belongs to a different user. Do NOT auto-link. Clear the
             // existing session cookie so the user is shown the login page and can
@@ -147,10 +149,11 @@ export async function GET(request: NextRequest) {
 
         user = await db.collection("users").findOne({ _id: result.insertedId })
 
-        // Store OAuth integration
+        // Store OAuth integration for auth and account linking
         if (user) {
           const accessTokenEncrypted = tokens.accessToken ? encrypt(tokens.accessToken) : undefined
           const refreshTokenEncrypted = tokens.refreshToken ? encrypt(tokens.refreshToken) : undefined
+          const oauthScopes = ["openid", "profile", "email"]
 
           await db.collection("oauth_integrations").insertOne({
             userId: user._id.toString(),
@@ -160,7 +163,7 @@ export async function GET(request: NextRequest) {
             accessToken: accessTokenEncrypted,
             refreshToken: refreshTokenEncrypted,
             tokenExpiry: tokens.expiryDate ? new Date(tokens.expiryDate) : undefined,
-            scopes: ["openid", "profile", "email"], // Default OAuth scopes
+            scopes: oauthScopes,
             createdAt: now,
             updatedAt: now,
           })
@@ -170,6 +173,7 @@ export async function GET(request: NextRequest) {
       // User found by Google ID - update OAuth tokens
       const accessTokenEncrypted = tokens.accessToken ? encrypt(tokens.accessToken) : undefined
       const refreshTokenEncrypted = tokens.refreshToken ? encrypt(tokens.refreshToken) : undefined
+      const oauthScopes = ["openid", "profile", "email"]
 
       await db.collection("oauth_integrations").updateOne(
         { userId: user._id.toString(), provider: "google" },
@@ -178,7 +182,7 @@ export async function GET(request: NextRequest) {
             accessToken: accessTokenEncrypted,
             refreshToken: refreshTokenEncrypted,
             tokenExpiry: tokens.expiryDate ? new Date(tokens.expiryDate) : undefined,
-            scopes: ["openid", "profile", "email"], // Default OAuth scopes
+            scopes: oauthScopes,
             updatedAt: new Date(),
           },
         },
@@ -190,6 +194,9 @@ export async function GET(request: NextRequest) {
       console.error("Google auth: user still missing after create")
       return NextResponse.redirect(`${baseUrl}/login?error=oauth_user_missing`)
     }
+
+    // Note: Calendar integration auto-creation and token refresh have been removed.
+    // OAuth tokens are stored in oauth_integrations for auth/session purposes only.
 
     // Generate JWT and set cookie
     const token = generateToken({

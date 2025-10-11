@@ -26,6 +26,7 @@ export const timeEntryBase = {
   isHolidayExtra: z.boolean().optional().default(false),
   totalHours: z.number().min(0).max(48).optional(),
   deletedAt: z.string().datetime().optional().nullable(),
+  // Previously had Google sync fields (removed)
   timer: z.object({
     isRunning: z.boolean(),
     startedAt: z.string().datetime().optional(),

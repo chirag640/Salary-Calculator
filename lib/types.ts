@@ -21,6 +21,10 @@ export interface TimeEntry {
   createdAt?: Date
   updatedAt?: Date
   deletedAt?: Date | null // soft delete marker; null/undefined means active
+
+  // Google Calendar sync fields (opt-in)
+  // (Google Calendar sync fields removed)
+  // If you previously relied on calendar sync, any existing DB fields will be ignored by the app.
 }
 
 export interface TimerState {
