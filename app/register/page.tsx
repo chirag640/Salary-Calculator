@@ -1,41 +1,47 @@
-"use client"
+"use client";
 
-import type React from "react"
+import type React from "react";
 
-import { useState } from "react"
-import { useRouter } from "next/navigation"
-import Link from "next/link"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Alert, AlertDescription } from "@/components/ui/alert"
-import GoogleSignInButton from '../../components/google-signin-button'
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import GoogleSignInButton from "../../components/google-signin-button";
 
 export default function RegisterPage() {
-  const [name, setName] = useState("")
-  const [email, setEmail] = useState("")
-  const [password, setPassword] = useState("")
-  const [confirmPassword, setConfirmPassword] = useState("")
-  const [error, setError] = useState("")
-  const [loading, setLoading] = useState(false)
-  const router = useRouter()
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+  const router = useRouter();
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setLoading(true)
-    setError("")
+    e.preventDefault();
+    setLoading(true);
+    setError("");
 
     if (password !== confirmPassword) {
-      setError("Passwords do not match")
-      setLoading(false)
-      return
+      setError("Passwords do not match");
+      setLoading(false);
+      return;
     }
 
     if (password.length < 6) {
-      setError("Password must be at least 6 characters")
-      setLoading(false)
-      return
+      setError("Password must be at least 6 characters");
+      setLoading(false);
+      return;
     }
 
     try {
@@ -43,39 +49,43 @@ export default function RegisterPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name, email, password }),
-      })
+      });
 
-      const data = await response.json()
+      const data = await response.json();
 
       if (response.ok) {
-        // If server sent an OTP for verification, go to verify screen.
-        // The register endpoint returns a message indicating OTP was sent.
-        if (data?.message && /verification code sent/i.test(String(data.message))) {
-          const returnTo = data?.returnTo || "/profile"
-          // Pass the email so the verify page can pre-fill it (sanitized/masked on server)
-          router.push(`/verify-email?email=${encodeURIComponent(email)}&returnTo=${encodeURIComponent(returnTo)}`)
-        } else if (data?.token || data?.user) {
-          // Backwards-compatible flow: token/user indicates immediate registration
-          router.push("/profile")
-        } else {
-          router.push("/profile")
-        }
+        // Registration successful - OTP sent to email
+        // Redirect to verification page
+        router.push(
+          `/verify-email?email=${encodeURIComponent(
+            email
+          )}&returnTo=${encodeURIComponent("/")}`
+        );
+      } else if (response.status === 400 && data?.details) {
+        // Password validation errors (array)
+        setError(
+          Array.isArray(data.details)
+            ? data.details.join(", ")
+            : data.error || "Registration failed"
+        );
       } else {
-        setError(data.error || "Registration failed")
+        setError(data.error || "Registration failed");
       }
     } catch (error) {
-      setError("Network error. Please try again.")
+      setError("Network error. Please try again.");
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background bg-aurora px-4 py-12">
       <Card className="w-full max-w-md glass-card">
         <CardHeader className="text-center">
           <CardTitle className="text-2xl font-bold">Create Account</CardTitle>
-          <CardDescription className="text-muted-foreground">Sign up for your time tracker account</CardDescription>
+          <CardDescription className="text-muted-foreground">
+            Sign up for your time tracker account
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -135,7 +145,12 @@ export default function RegisterPage() {
               />
             </div>
 
-            <Button type="submit" className="w-full" variant="glass" disabled={loading}>
+            <Button
+              type="submit"
+              className="w-full"
+              variant="glass"
+              disabled={loading}
+            >
               {loading ? "Creating account..." : "Create Account"}
             </Button>
           </form>
@@ -155,5 +170,5 @@ export default function RegisterPage() {
         </CardContent>
       </Card>
     </div>
-  )
+  );
 }

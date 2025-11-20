@@ -1,6 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { connectToDatabase } from "@/lib/mongodb"
-import { verifyToken } from "@/lib/auth"
+import { verifyToken, verifyRevealToken } from "@/lib/auth"
 import { validateCsrf } from "@/lib/csrf"
 import type { UpdateProfileRequest, ProfileResponse } from "@/lib/types"
 
@@ -13,9 +13,20 @@ export async function GET(request: NextRequest) {
   const userId = userFromToken?._id
     if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
+    // Check reveal token cookie — only show raw salary/hourly values if the reveal token
+    // is valid and belongs to the same user.
+    const revealCookie = request.cookies.get("reveal-token")?.value
+    const revealValid = revealCookie ? verifyRevealToken(revealCookie) : null
+    const allowReveal = revealValid && revealValid.userId === userId
+
     const { db } = await connectToDatabase()
     const user = await db.collection("users").findOne({ _id: new (require("mongodb").ObjectId)(userId) })
     if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 })
+    const salaryHistory = (user.salaryHistory || []).map((rec: any) => ({
+      ...rec,
+      // redact amount unless reveal allowed
+      amount: allowReveal ? rec.amount : null,
+    }))
 
     const resp: ProfileResponse = {
       _id: user._id.toString(),
@@ -24,7 +35,8 @@ export async function GET(request: NextRequest) {
       contact: user.contact,
       workingConfig: user.workingConfig,
       overtime: user.overtime,
-      salaryHistory: user.salaryHistory || [],
+      salaryHistory,
+      defaultHourlyRate: allowReveal && typeof user.defaultHourlyRate === 'number' ? user.defaultHourlyRate : undefined,
     }
     return NextResponse.json(resp)
   } catch (e) {

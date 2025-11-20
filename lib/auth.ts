@@ -29,6 +29,31 @@ export async function comparePassword(password: string, hashedPassword: string):
   return bcrypt.compare(password, hashedPassword)
 }
 
+// --- PIN helpers ---
+export async function hashPin(pin: string): Promise<string> {
+  // Use bcrypt for short secrets; cost tuned to be reasonable for quick checks
+  return bcrypt.hash(pin, 12)
+}
+
+export async function comparePin(pin: string, hashedPin: string): Promise<boolean> {
+  return bcrypt.compare(pin, hashedPin)
+}
+
+// reveal token (short lived) helpers
+export function generateRevealToken(userId: string, ttlSeconds = 300): string {
+  return jwt.sign({ userId, type: "reveal" }, JWT_SECRET, { expiresIn: `${ttlSeconds}s` })
+}
+
+export function verifyRevealToken(token: string): { userId: string } | null {
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET) as any
+    if (decoded?.type !== "reveal") return null
+    return { userId: decoded.userId }
+  } catch (e) {
+    return null
+  }
+}
+
 export function getTokenFromRequest(request: Request): string | null {
   // 1) Check Authorization header (Bearer token)
   const authHeader = request.headers.get("authorization")

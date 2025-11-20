@@ -10,6 +10,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Download, FileText } from "lucide-react"
 import { useFetchWithCsrf } from "@/hooks/use-fetch-with-csrf"
+import PinModal from "@/components/pin-modal"
 
 interface InvoiceData {
   startDate: string
@@ -33,6 +34,7 @@ export function InvoiceGenerator() {
   })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
+  const [showPin, setShowPin] = useState(false)
 
   const handleInputChange = (field: keyof InvoiceData, value: string) => {
     setInvoiceData((prev) => ({ ...prev, [field]: value }))
@@ -61,7 +63,12 @@ export function InvoiceGenerator() {
         window.URL.revokeObjectURL(url)
         document.body.removeChild(a)
       } else {
-        const errorData = await response.json()
+        const errorData = await response.json().catch(() => ({}))
+        if (response.status === 403 && typeof errorData.error === "string" && errorData.error.toLowerCase().includes("reveal")) {
+          setShowPin(true)
+          setLoading(false)
+          return
+        }
         setError(errorData.error || "Failed to generate invoice")
       }
     } catch (error) {
@@ -167,6 +174,10 @@ export function InvoiceGenerator() {
           <Download className="h-4 w-4 mr-2" />
           {loading ? "Generating Invoice..." : "Generate & Download PDF"}
         </Button>
+        <PinModal open={showPin} onClose={() => setShowPin(false)} onSuccess={async () => {
+          setShowPin(false)
+          await generateInvoice()
+        }} />
       </CardContent>
     </Card>
   )

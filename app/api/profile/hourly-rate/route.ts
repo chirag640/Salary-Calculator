@@ -1,6 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { connectToDatabase } from "@/lib/mongodb"
-import { verifyToken } from "@/lib/auth"
+import { verifyToken, verifyRevealToken } from "@/lib/auth"
 import { getEffectiveHourlyRateForDate } from "@/lib/salary"
 import { validateCsrf } from "@/lib/csrf"
 import { rateLimit, buildRateLimitKey } from "@/lib/rate-limit"
@@ -23,7 +23,11 @@ export async function GET(request: NextRequest) {
 
     const { db } = await connectToDatabase()
     const eff = await getEffectiveHourlyRateForDate(db, userId, date)
-    return NextResponse.json({ date, hourlyRate: eff.hourlyRate })
+    const revealCookie = request.cookies.get("reveal-token")?.value
+    const revealValid = revealCookie ? verifyRevealToken(revealCookie) : null
+    const allowReveal = revealValid && revealValid.userId === userId
+
+    return NextResponse.json({ date, hourlyRate: allowReveal ? eff.hourlyRate : null, masked: !allowReveal })
   } catch (e) {
     console.error("GET /api/profile/hourly-rate error", e)
     return NextResponse.json({ error: "Failed to get hourly rate" }, { status: 500 })

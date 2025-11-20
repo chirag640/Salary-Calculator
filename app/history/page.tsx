@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button"
 import type { TimeEntry } from "@/lib/types"
 import { Clock } from "lucide-react"
 import { useRouter } from "next/navigation"
-import { motion, fadeInUp, staggerContainer } from "@/components/motion"
+import { MotionProvider, Motion, LazyAnimatePresence, fadeInUp, staggerContainer } from "@/components/motion"
 import { useToast } from "@/hooks/use-toast"
 import { ToastAction } from "@/components/ui/toast"
 import { useCsrfToken } from "@/hooks/use-csrf"
@@ -194,19 +194,21 @@ export default function HistoryPage() {
   }
 
   return (
-    <motion.div className="container mx-auto max-w-6xl" variants={staggerContainer} initial="hidden" animate="show">
-      <motion.div variants={fadeInUp} className="mb-8">
+    <MotionProvider>
+    <Motion>
+    <div className="container mx-auto max-w-6xl">
+      <div className="mb-8">
         <h1 className="text-3xl font-bold mb-2">History & Summary</h1>
         <p className="text-muted-foreground">View your complete time tracking history and analytics</p>
-      </motion.div>
+  </div>
 
       {/* Summary Dashboard */}
-      <motion.div variants={fadeInUp} className="mb-8">
+      <div className="mb-8">
         <SummaryDashboard entries={entries} />
-      </motion.div>
+      </div>
 
       {/* History List */}
-      <motion.div variants={fadeInUp}>
+  <div>
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-2xl font-semibold">All Entries</h2>
           <div className="flex items-center gap-4">
@@ -244,7 +246,9 @@ export default function HistoryPage() {
         <div ref={loadMoreRef} className="h-10 flex items-center justify-center text-xs text-muted-foreground mt-4">
           {nextCursor ? (loadingMore ? 'Loading more...' : 'Scroll to load more') : historyItems.length > 0 ? 'End of history' : ''}
         </div>
-      </motion.div>
-    </motion.div>
+      </div>
+    </div>
+    </Motion>
+    </MotionProvider>
   )
 }

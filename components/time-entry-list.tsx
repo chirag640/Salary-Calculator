@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { formatTime, formatCurrency } from "@/lib/time-utils"
+import MaskedValue from "@/components/ui/masked-value"
 import type { TimeEntry } from "@/lib/types"
 import { Pencil, Trash2, Calendar, Clock } from "lucide-react"
 import { TimerControls } from "@/components/timer-controls"
@@ -95,7 +96,7 @@ export function TimeEntryList({ entries, onEdit, onDelete }: TimeEntryListProps)
                               {entry.timeIn || '--:--'} - {entry.timeOut || '--:--'}
                             </span>
                             {/* Break minutes no longer tracked; hourly rate shown for reference */}
-                            <Badge variant="secondary">${entry.hourlyRate}/hr</Badge>
+                            <Badge variant="secondary"><MaskedValue value={entry.hourlyRate} format={(v) => `$${Number(v).toFixed(2)}/hr`} ariaLabel="Hourly rate hidden" /></Badge>
                             {entry.deletedAt && <Badge variant="destructive">Deleted</Badge>}
                             {entry.timer?.isRunning && (
                               <Badge variant="default" className="bg-green-500 gap-1">
@@ -114,7 +115,7 @@ export function TimeEntryList({ entries, onEdit, onDelete }: TimeEntryListProps)
 
                           <div className="flex items-center gap-4 text-sm text-muted-foreground mb-2">
                             <span>{formatTime(entry.totalHours)}</span>
-                            <span className="text-green-600 font-medium">{formatCurrency(entry.totalEarnings)}</span>
+                            <span className="text-green-600 font-medium"><MaskedValue value={entry.totalEarnings} format={(v) => `$${Number(v).toFixed(2)}`} ariaLabel="Total earnings hidden" /></span>
                           </div>
 
                           {entry.workDescription && (

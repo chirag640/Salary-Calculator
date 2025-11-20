@@ -1,6 +1,6 @@
 "use client"
 import { useEffect, useState } from "react"
-import { motion, fadeInUp, staggerContainer } from "@/components/motion"
+import { MotionProvider, Motion, LazyAnimatePresence, fadeInUp, staggerContainer } from "@/components/motion"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -12,6 +12,7 @@ import type { ProfileResponse, SalaryRecord, SalaryType } from "@/lib/types"
 import { useCsrfToken } from "@/hooks/use-csrf"
 import { useFetchWithCsrf } from "@/hooks/use-fetch-with-csrf"
 import { useToast } from "@/hooks/use-toast"
+import MaskedValue from "@/components/ui/masked-value"
 
 export default function ProfilePage() {
   const [profile, setProfile] = useState<ProfileResponse | null>(null)
@@ -40,6 +41,9 @@ export default function ProfilePage() {
   // Quick current salary
   const [currentSalary, setCurrentSalary] = useState<number>(0)
   const [currentSalaryType, setCurrentSalaryType] = useState<SalaryType>("monthly")
+  // PIN management
+  const [currentPinInput, setCurrentPinInput] = useState<string>("")
+  const [newPinInput, setNewPinInput] = useState<string>("")
 
   useEffect(() => {
     const load = async () => {
@@ -142,6 +146,16 @@ export default function ProfilePage() {
     try {
       const res = await fetchWithCsrf('/api/profile', { method: 'PUT', body: JSON.stringify({ defaultHourlyRate: estimatedHourly }) })
       if (res.ok) {
+        // Refresh profile so masked/default values are consistent in the UI
+        try {
+          const profRes = await fetchWithCsrf('/api/profile', { method: 'GET' })
+          if (profRes.ok) {
+            const prof = await profRes.json()
+            setProfile(prof)
+          }
+        } catch (e) {
+          // ignore refresh errors
+        }
         toast({ title: 'Default hourly rate set', description: `Now ${estimatedHourly}` })
       } else {
         toast({ title: 'Update failed', description: 'Could not set hourly rate.', variant: 'destructive' })
@@ -153,10 +167,12 @@ export default function ProfilePage() {
   if (loading) return <div className="p-6">Loading profile...</div>
 
   return (
-    <motion.div className="container mx-auto p-6 max-w-4xl space-y-6" variants={staggerContainer} initial="hidden" animate="show">
-      <motion.h1 className="text-3xl font-bold" variants={fadeInUp}>Profile</motion.h1>
+    <MotionProvider>
+    <Motion>
+    <div className="container mx-auto p-6 max-w-4xl space-y-6">
+      <h1 className="text-3xl font-bold">Profile</h1>
 
-      <motion.div variants={fadeInUp}>
+      <div>
   <Card className="hover:translate-y-[-1px] transition-transform">
         <CardHeader>
           <CardTitle>Personal Details</CardTitle>
@@ -166,13 +182,10 @@ export default function ProfilePage() {
             <div>
               <Label>Name</Label>
               <Input value={name} onChange={(e) => setName(e.target.value)} />
-            </div>
+              </div>
             <div>
               <Label>Username</Label>
               <Input value={username} onChange={(e) => setUsername(e.target.value)} placeholder="Optional username" />
-            </div>
-            <div>
-              <Label>Email</Label>
               <Input value={email} disabled />
             </div>
             <div>
@@ -195,9 +208,9 @@ export default function ProfilePage() {
           </div>
         </CardContent>
       </Card>
-      </motion.div>
+    </div>
 
-      <motion.div variants={fadeInUp}>
+    <div>
   <Card className="hover:translate-y-[-1px] transition-transform">
         <CardHeader>
           <CardTitle>Overtime Settings</CardTitle>
@@ -220,9 +233,9 @@ export default function ProfilePage() {
           </div>
         </CardContent>
       </Card>
-      </motion.div>
+    </div>
 
-      <motion.div variants={fadeInUp}>
+    <div>
   <Card className="hover:translate-y-[-1px] transition-transform">
         <CardHeader>
           <CardTitle>Salary Increments</CardTitle>
@@ -274,9 +287,24 @@ export default function ProfilePage() {
               </div>
             </div>
           </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-2">
+            <div>
+              <Label>Default hourly rate</Label>
+              <div className="pt-2">
+                {typeof profile?.defaultHourlyRate === 'number' ? (
+                  <MaskedValue value={profile!.defaultHourlyRate!} format={(v) => `$${Number(v).toFixed(2)}`} />
+                ) : (
+                  <div className="text-muted-foreground">Not set</div>
+                )}
+              </div>
+            </div>
+            <div className="col-span-2">
+              <div className="text-sm text-muted-foreground">You can estimate an hourly rate above and apply it as your default hourly rate. Values are masked until you reveal them with your PIN.</div>
+            </div>
+          </div>
           {estimatedHourly != null && (
             <div className="mt-3 flex items-center gap-4">
-              <div className="text-sm">Estimated hourly rate: <span className="font-semibold">${estimatedHourly}</span></div>
+              <div className="text-sm">Estimated hourly rate: <span className="font-semibold"><MaskedValue value={estimatedHourly} format={(v) => `$${Number(v).toFixed(2)}`} /></span></div>
               <Button size="sm" onClick={applyEstimatedHourly} disabled={saving} variant="glass">{saving ? 'Saving...' : 'Apply as default hourly rate'}</Button>
             </div>
           )}
@@ -320,7 +348,7 @@ export default function ProfilePage() {
                   .map((rec: SalaryRecord, idx: number) => (
                     <div key={idx} className="border rounded p-3 flex items-center justify-between">
                       <div>
-                        <div className="font-medium">{rec.salaryType.toUpperCase()} ${rec.amount.toFixed(2)}</div>
+                        <div className="font-medium">{rec.salaryType.toUpperCase()} <MaskedValue value={rec.amount} format={(v) => `$${Number(v).toFixed(2)}`} /></div>
                         <div className="text-sm text-muted-foreground">Effective {rec.effectiveFrom} — {rec.working.hoursPerDay}h/day × {rec.working.daysPerMonth}d/mo</div>
                         {rec.note && <div className="text-sm">{rec.note}</div>}
                       </div>
@@ -333,10 +361,91 @@ export default function ProfilePage() {
           </div>
         </CardContent>
       </Card>
-      </motion.div>
+  </div>
+
+  <div>
+  <Card className="hover:translate-y-[-1px] transition-transform">
+        <CardHeader>
+          <CardTitle>PIN (privacy)</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <Label>Current PIN (if changing)</Label>
+              <Input type="password" value={currentPinInput} onChange={(e) => setCurrentPinInput(e.target.value)} placeholder="Enter current PIN" />
+            </div>
+            <div>
+              <Label>New PIN</Label>
+              <Input type="password" value={newPinInput} onChange={(e) => setNewPinInput(e.target.value)} placeholder="New PIN (min 4 digits)" />
+            </div>
+              <div className="flex items-end gap-2">
+              <Button onClick={async () => {
+                if (!newPinInput || newPinInput.length < 4) {
+                  toast({ title: 'PIN error', description: 'New PIN must be at least 4 digits', variant: 'destructive' })
+                  return
+                }
+                try {
+                  const res = await fetchWithCsrf('/api/profile/pin', { method: 'POST', body: JSON.stringify({ currentPin: currentPinInput || undefined, newPin: newPinInput }) })
+                  if (res.ok) {
+                    setCurrentPinInput('')
+                    // attempt to auto-verify new PIN so user can immediately reveal values
+                    try {
+                      const verifyRes = await fetch('/api/auth/pin/verify', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        credentials: 'include',
+                        body: JSON.stringify({ pin: newPinInput }),
+                      })
+                      if (verifyRes.ok) {
+                        // refresh profile to show revealed values
+                        try {
+                          const profRes = await fetchWithCsrf('/api/profile', { method: 'GET' })
+                          if (profRes.ok) {
+                            const prof = await profRes.json()
+                            setProfile(prof)
+                          }
+                        } catch (e) {}
+                        setNewPinInput('')
+                        toast({ title: 'PIN set', description: 'Your PIN has been set and revealed.' })
+                      } else {
+                        setNewPinInput('')
+                        toast({ title: 'PIN set', description: 'Your PIN has been updated. Reveal it using the Reveal button.' })
+                      }
+                    } catch (e) {
+                      setNewPinInput('')
+                      toast({ title: 'PIN set', description: 'Your PIN has been updated.' })
+                    }
+                  } else {
+                    const err = await res.json().catch(() => ({}))
+                    toast({ title: 'Failed', description: err.error || err.message || 'Could not set PIN', variant: 'destructive' })
+                  }
+                } catch (e) {
+                  toast({ title: 'Failed', description: 'Network error', variant: 'destructive' })
+                }
+              }} variant="glass">Set / Change PIN</Button>
+              <Button onClick={async () => {
+                // remove PIN
+                try {
+                  const res = await fetchWithCsrf('/api/profile/pin', { method: 'DELETE' })
+                  if (res.ok) {
+                    toast({ title: 'PIN removed', description: 'PIN disabled for your account.' })
+                  } else {
+                    const err = await res.json().catch(() => ({}))
+                    toast({ title: 'Failed', description: err.error || 'Could not remove PIN', variant: 'destructive' })
+                  }
+                } catch {
+                  toast({ title: 'Failed', description: 'Network error', variant: 'destructive' })
+                }
+              }} variant="destructive">Remove PIN</Button>
+            </div>
+          </div>
+          <div className="text-sm text-muted-foreground">Setting a PIN lets you reveal masked salary and hourly rate values for a short time. Keep it secret and don’t share it.</div>
+        </CardContent>
+      </Card>
+  </div>
 
       {/* Integrations - Placeholder for future integrations */}
-      <motion.div variants={fadeInUp} id="integrations">
+  <div id="integrations">
         <Card className="hover:translate-y-[-1px] transition-transform">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -357,12 +466,14 @@ export default function ProfilePage() {
             </div>
           </CardContent>
         </Card>
-      </motion.div>
+  </div>
 
       {/* Notification Settings */}
-      <motion.div variants={fadeInUp} id="notifications">
+      <div id="notifications">
         <NotificationSettingsManager />
-      </motion.div>
-    </motion.div>
+      </div>
+    </div>
+    </Motion>
+    </MotionProvider>
   )
 }

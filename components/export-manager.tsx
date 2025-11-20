@@ -10,6 +10,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Download, FileSpreadsheet } from "lucide-react"
 import { useCsrfToken } from "@/hooks/use-csrf"
 import { useFetchWithCsrf } from "@/hooks/use-fetch-with-csrf"
+import PinModal from "@/components/pin-modal"
 
 interface ExportData {
   startDate: string
@@ -31,6 +32,7 @@ export function ExportManager() {
   })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
+  const [showPin, setShowPin] = useState(false)
   const { csrfToken, ensureCsrfToken, refreshCsrfToken } = useCsrfToken()
   const { fetchWithCsrf } = useFetchWithCsrf()
 
@@ -72,6 +74,14 @@ export function ExportManager() {
         window.URL.revokeObjectURL(url)
         document.body.removeChild(a)
       } else if (response.status === 403) {
+        const errorData = await response.json().catch(() => ({}))
+        // If server indicates reveal is required, prompt for PIN
+        if (errorData?.error && typeof errorData.error === "string" && errorData.error.toLowerCase().includes("reveal")) {
+          setShowPin(true)
+          setLoading(false)
+          return
+        }
+
         // Attempt one silent retry if CSRF failed (maybe token rotated)
         const refreshed = await refreshCsrfToken()
         if (refreshed) {
@@ -193,6 +203,11 @@ export function ExportManager() {
           <Download className="h-4 w-4 mr-2" />
           {loading ? "Exporting..." : `Export as ${exportData.format.toUpperCase()}`}
         </Button>
+        <PinModal open={showPin} onClose={() => setShowPin(false)} onSuccess={async () => {
+          setShowPin(false)
+          // Retry export after successful reveal
+          await exportData_func()
+        }} />
       </CardContent>
     </Card>
   )

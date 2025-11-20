@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button"
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts"
 import { Clock, DollarSign, Briefcase, CalendarX } from "lucide-react"
 import type { TimeEntry, PeriodSummary, ProjectSummary, ProfileResponse } from "@/lib/types"
+import MaskedValue from "@/components/ui/masked-value"
 import { format, startOfWeek, startOfMonth, endOfWeek, endOfMonth, parseISO } from "date-fns"
 
 interface SummaryDashboardProps {
@@ -219,9 +220,9 @@ export function SummaryDashboard({ entries }: SummaryDashboardProps) {
             <DollarSign className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-green-600">${totalEarnings.toFixed(2)}</div>
+            <div className="text-2xl font-bold text-green-600"><MaskedValue value={totalEarnings} format={(v) => `$${Number(v).toFixed(2)}`} ariaLabel="Total earnings hidden" /></div>
             <p className="text-xs text-muted-foreground">
-              Avg: ${totalWorkDays > 0 ? (totalEarnings / totalWorkDays).toFixed(2) : "0"}/day
+              Avg: <MaskedValue value={totalWorkDays > 0 ? (totalEarnings / totalWorkDays) : 0} format={(v) => `$${Number(v).toFixed(2)}/day`} ariaLabel="Average per day hidden" />
             </p>
           </CardContent>
   </Card>
@@ -322,7 +323,7 @@ export function SummaryDashboard({ entries }: SummaryDashboardProps) {
                   </div>
                   <div className="text-right">
                     <div className="font-medium">{project.hours.toFixed(2)}h</div>
-                    <div className="text-sm text-green-600">${project.earnings.toFixed(2)}</div>
+                    <div className="text-sm text-green-600"><MaskedValue value={project.earnings} format={(v) => `$${Number(v).toFixed(2)}`} ariaLabel="Project earnings hidden" /></div>
                   </div>
                 </div>
               ))}
@@ -358,11 +359,11 @@ export function SummaryDashboard({ entries }: SummaryDashboardProps) {
                   </div>
                   <div>
                     <div className="text-sm text-muted-foreground">Before</div>
-                    <div className="font-medium">{beforeHours.toFixed(1)}h • ${beforeEarn.toFixed(2)}</div>
+                    <div className="font-medium">{beforeHours.toFixed(1)}h • <MaskedValue value={beforeEarn} format={(v) => `$${Number(v).toFixed(2)}`} ariaLabel="Before earnings hidden" /></div>
                   </div>
                   <div>
                     <div className="text-sm text-muted-foreground">After</div>
-                    <div className="font-medium">{afterHours.toFixed(1)}h • ${afterEarn.toFixed(2)}</div>
+                    <div className="font-medium">{afterHours.toFixed(1)}h • <MaskedValue value={afterEarn} format={(v) => `$${Number(v).toFixed(2)}`} ariaLabel="After earnings hidden" /></div>
                     {beforeHours > 0 && afterHours > 0 && (
                       <div className="text-xs text-muted-foreground">Avg/hr change: {pct.toFixed(1)}%</div>
                     )}

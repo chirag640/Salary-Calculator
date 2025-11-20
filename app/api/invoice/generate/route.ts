@@ -2,7 +2,7 @@ import { type NextRequest, NextResponse } from "next/server"
 import { connectToDatabase } from "@/lib/mongodb"
 import type { TimeEntry } from "@/lib/types"
 import PDFDocument from "pdfkit"
-import { verifyToken } from "@/lib/auth"
+import { verifyToken, verifyRevealToken } from "@/lib/auth"
 import { getEffectiveHourlyRateForDate, computeEarningsWithOvertime } from "@/lib/salary"
 import { invoiceRequestSchema } from "@/lib/validation/schemas"
 import { validateCsrf } from "@/lib/csrf"
@@ -31,6 +31,13 @@ export async function POST(request: NextRequest) {
 
     if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
+    // Require a valid reveal token to include monetary amounts in the invoice
+    const revealCookie = request.cookies.get("reveal-token")?.value
+    const revealValid = revealCookie ? verifyRevealToken(revealCookie) : null
+    if (!revealValid || revealValid.userId !== userId) {
+      return NextResponse.json({ error: "Reveal required to generate invoice. Please reveal sensitive values first." }, { status: 403 })
     }
 
     if (!validateCsrf(request)) {

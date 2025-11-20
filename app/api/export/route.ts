@@ -2,7 +2,7 @@ import { type NextRequest, NextResponse } from "next/server"
 import { connectToDatabase } from "@/lib/mongodb"
 import type { TimeEntry } from "@/lib/types"
 import * as XLSX from "xlsx"
-import { verifyToken } from "@/lib/auth"
+import { verifyToken, verifyRevealToken } from "@/lib/auth"
 import { exportRequestSchema } from "@/lib/validation/schemas"
 import { rateLimit, buildRateLimitKey } from "@/lib/rate-limit"
 import { validateCsrf } from "@/lib/csrf"
@@ -28,6 +28,13 @@ export async function POST(request: NextRequest) {
 
     if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
+    // Require reveal token to include monetary data in exports
+    const revealCookie = request.cookies.get("reveal-token")?.value
+    const revealValid = revealCookie ? verifyRevealToken(revealCookie) : null
+    if (!revealValid || revealValid.userId !== userId) {
+      return NextResponse.json({ error: "Reveal required to export monetary data. Please reveal sensitive values first." }, { status: 403 })
     }
 
     if (!validateCsrf(request)) {

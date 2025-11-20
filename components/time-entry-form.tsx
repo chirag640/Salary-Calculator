@@ -11,6 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Checkbox } from "@/components/ui/checkbox"
 import { calculateTimeWorked, formatTime, formatCurrency } from "@/lib/time-utils"
+import MaskedValue from "@/components/ui/masked-value"
 import type { TimeEntry, LeaveType } from "@/lib/types"
 import { TimerControls } from "@/components/timer-controls"
 
@@ -387,9 +388,9 @@ export function TimeEntryForm({ selectedDate, onSubmit, initialData, isEditing =
               <div>
                 <Label className="text-base">💰 Hourly Rate</Label>
                 <div className="p-3 rounded-lg bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-950/30 dark:to-emerald-950/30 border border-green-200 dark:border-green-800">
-                  <div className="text-2xl font-bold text-green-700 dark:text-green-400">
-                    ${hourlyRate.toFixed(2)} <span className="text-sm font-normal text-muted-foreground">per hour</span>
-                  </div>
+                      <div className="text-2xl font-bold text-green-700 dark:text-green-400">
+                        <MaskedValue value={hourlyRate} format={(v) => `$${Number(v).toFixed(2)}`} /> <span className="text-sm font-normal text-muted-foreground">per hour</span>
+                      </div>
                   <p className="text-xs text-muted-foreground mt-1">
                     Automatically loaded from your profile
                   </p>
@@ -422,7 +423,7 @@ export function TimeEntryForm({ selectedDate, onSubmit, initialData, isEditing =
                   <div>
                     <div className="text-sm text-muted-foreground mb-1">Estimated Earnings</div>
                     <div className="text-3xl font-bold text-green-600 dark:text-green-300">
-                      ${calculation.totalEarnings.toFixed ? calculation.totalEarnings.toFixed(2) : calculation.totalEarnings}
+                      <MaskedValue value={calculation.totalEarnings} format={(v) => `$${Number(v).toFixed(2)}`} />
                     </div>
                   </div>
                 </div>

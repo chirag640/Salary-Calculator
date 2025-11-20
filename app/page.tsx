@@ -11,7 +11,7 @@ import type { TimeEntry } from "@/lib/types"
 import { Clock, DollarSign, CalendarX } from "lucide-react"
 import { format } from "date-fns"
 import { useRouter } from "next/navigation"
-import { motion, fadeInUp, staggerContainer } from "@/components/motion"
+import { MotionProvider, Motion, LazyAnimatePresence, fadeInUp, staggerContainer } from "@/components/motion"
 import { useToast } from "@/hooks/use-toast"
 import { ToastAction } from "@/components/ui/toast"
 import { useCsrfToken } from "@/hooks/use-csrf"
@@ -396,7 +396,9 @@ export default function TimeTracker() {
   }
 
   return (
-    <motion.div className="container mx-auto p-4 md:p-6 max-w-6xl" variants={staggerContainer} initial="hidden" animate="show">
+    <MotionProvider>
+    <Motion>
+    <div className="container mx-auto p-4 md:p-6 max-w-6xl">
       {/* Date Selection - Sticky on mobile */}
       <div className="sticky top-0 md:top-4 z-40 bg-background/95 backdrop-blur-sm py-3 -mx-4 px-4 md:mx-0 md:px-0 md:bg-transparent md:backdrop-blur-none mb-6">
         <div className="flex items-center gap-2 md:gap-4">
@@ -417,7 +419,7 @@ export default function TimeTracker() {
       {/* Calendar events panel removed from main screen per request */}
   
       {/* Summary for Selected Date */}
-      <motion.div variants={fadeInUp} className="mb-6">
+  <div className="mb-6">
         <Card className={cn("hover:shadow-lg transition-all", 
           todayEntries.some(e => e.timer?.isRunning) && "border-green-500 shadow-green-500/20")}>
           <CardHeader className="pb-3">
@@ -467,12 +469,12 @@ export default function TimeTracker() {
               </div>
             </div>
           </CardContent>
-        </Card>
-      </motion.div>
+            </Card>
+          </div>
 
       {/* Quick Start Timer - only for today */}
       {selectedDateString === todayString && !editingEntry && (
-        <motion.div variants={fadeInUp} id="quick-start-timer" className="flex justify-center mb-6">
+  <div id="quick-start-timer" className="flex justify-center mb-6">
           <QuickStartTimer 
             selectedDate={selectedDateString}
             onEntryCreated={(entryId) => {
@@ -490,12 +492,12 @@ export default function TimeTracker() {
               })
             }}
           />
-        </motion.div>
+        </div>
       )}
 
       {/* Time Entry Form - collapsible on mobile */}
       {!todayEntries.some(e => e.timer?.isRunning) && (
-        <motion.div variants={fadeInUp} className="mb-6">
+  <div className="mb-6">
           {!editingEntry ? (
             <TimeEntryForm
               selectedDate={selectedDateString}
@@ -518,11 +520,11 @@ export default function TimeTracker() {
               </div>
             </>
           )}
-        </motion.div>
+  </div>
       )}
 
       {/* Entries for Selected Date */}
-      <motion.div variants={fadeInUp}>
+  <div>
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-lg md:text-xl font-semibold">
             {isToday ? "Today's Entries" : `Entries for ${format(selectedDate, "MMM d, yyyy")}`}
@@ -554,7 +556,9 @@ export default function TimeTracker() {
             </CardContent>
           </Card>
         )}
-      </motion.div>
-    </motion.div>
+      </div>
+    </div>
+    </Motion>
+    </MotionProvider>
   )
 }
