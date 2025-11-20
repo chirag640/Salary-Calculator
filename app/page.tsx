@@ -6,14 +6,6 @@ import { TimeEntryList } from "@/components/time-entry-list";
 import { DatePicker } from "@/components/date-picker";
 import { TimerHero } from "@/components/timer-hero";
 import { StatsGrid } from "@/components/stats-grid";
-import { Achievements } from "@/components/achievements";
-import { WeeklyGoals } from "@/components/weekly-goals";
-import { Insights } from "@/components/insights";
-import {
-  StatsGridSkeleton,
-  TimerHeroSkeleton,
-  AchievementsSkeleton,
-} from "@/components/loading-skeletons";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { TimeEntry } from "@/lib/types";
@@ -578,7 +570,7 @@ export default function TimeTracker() {
             </div>
           )}
 
-          {/* Stats Grid */}
+          {/* Stats Grid - Essential Stats Only */}
           <StatsGrid
             todayHours={todayTotalHours}
             todayEarnings={todayTotalEarnings}
@@ -586,25 +578,6 @@ export default function TimeTracker() {
             weekEarnings={weekEarnings}
             streak={streak}
             topProject={topProject}
-          />
-
-          {/* Gamification Section - 2 Column Layout */}
-          <div className="grid md:grid-cols-2 gap-6">
-            <WeeklyGoals
-              weekHours={weekHours}
-              weekEarnings={weekEarnings}
-              hoursGoal={40}
-              earningsGoal={1000}
-            />
-            <Insights entries={entries} />
-          </div>
-
-          {/* Achievements */}
-          <Achievements
-            totalHours={totalHours}
-            streak={streak}
-            totalEntries={totalEntries}
-            weekHours={weekHours}
           />
 
           {/* Date Navigation & Manual Entry */}

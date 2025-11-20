@@ -13,10 +13,18 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Play, Square, Clock, Zap } from "lucide-react";
+import { Play, Square, Clock } from "lucide-react";
 import { useTimer, formatTimerDisplay } from "@/hooks/use-timer";
 import { useCsrfToken } from "@/hooks/use-csrf";
 import { cn } from "@/lib/utils";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 interface TimerHeroProps {
   selectedDate: string;
@@ -34,20 +42,28 @@ export function TimerHero({
   const [loading, setLoading] = useState(false);
   const [activeEntryId, setActiveEntryId] = useState<string | null>(null);
   const [hourlyRate, setHourlyRate] = useState<number>(0);
-  const [workDescription, setWorkDescription] = useState("");
-  const [project, setProject] = useState("");
+  const [showStopDialog, setShowStopDialog] = useState(false);
+  const [finalWorkDescription, setFinalWorkDescription] = useState("");
+  const [finalProject, setFinalProject] = useState("");
   const { csrfToken, ensureCsrfToken } = useCsrfToken();
+
+  const [localElapsedSeconds, setLocalElapsedSeconds] = useState(0);
+  const [timerIntervalId, setTimerIntervalId] = useState<NodeJS.Timeout | null>(
+    null
+  );
 
   const {
     timer,
-    elapsedSeconds,
+    elapsedSeconds: hookElapsedSeconds,
     isRunning,
     stopTimer: stopTimerHook,
     loading: timerLoading,
   } = useTimer({
     entryId: activeEntryId || "",
-    autoFetch: !!activeEntryId,
+    autoFetch: false,
   });
+
+  const elapsedSeconds = localElapsedSeconds || hookElapsedSeconds;
 
   // Fetch hourly rate
   useEffect(() => {
@@ -69,10 +85,21 @@ export function TimerHero({
 
   const currentEarnings = (elapsedSeconds / 3600) * hourlyRate;
 
+  // Cleanup timer interval on unmount
+  useEffect(() => {
+    return () => {
+      if (timerIntervalId) {
+        clearInterval(timerIntervalId);
+      }
+    };
+  }, [timerIntervalId]);
+
   const handleStart = async () => {
     setLoading(true);
     try {
       const token = csrfToken || (await ensureCsrfToken());
+
+      // Create time entry
       const response = await fetch("/api/time-entries", {
         method: "POST",
         headers: {
@@ -82,17 +109,43 @@ export function TimerHero({
         credentials: "same-origin",
         body: JSON.stringify({
           date: selectedDate,
-          timeIn: new Date().toISOString().split("T")[1].slice(0, 8),
-          workDescription: workDescription || "Working...",
-          project: project || undefined,
-          startTimer: true,
+          workDescription: "Working...",
         }),
       });
 
       if (response.ok) {
         const data = await response.json();
-        setActiveEntryId(data._id);
-        onEntryCreated?.(data._id);
+        const entryId = data._id;
+
+        // Start timer immediately
+        const timerResponse = await fetch(
+          `/api/time-entries/${entryId}/timer`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              ...(token ? { "x-csrf-token": token } : {}),
+            },
+            credentials: "same-origin",
+            body: JSON.stringify({
+              action: "start",
+              timestamp: new Date().toISOString(),
+            }),
+          }
+        );
+
+        if (timerResponse.ok) {
+          setActiveEntryId(entryId);
+          setLocalElapsedSeconds(0);
+
+          // Start local timer tick
+          const intervalId = setInterval(() => {
+            setLocalElapsedSeconds((prev) => prev + 1);
+          }, 1000);
+          setTimerIntervalId(intervalId);
+
+          onEntryCreated?.(entryId);
+        }
       }
     } catch (error) {
       console.error("Failed to start timer:", error);
@@ -101,14 +154,67 @@ export function TimerHero({
     }
   };
 
-  const handleStop = async () => {
+  const handleStop = () => {
     if (!activeEntryId) return;
+    setFinalWorkDescription("");
+    setFinalProject("");
+    setShowStopDialog(true);
+  };
+
+  const confirmStop = async () => {
+    if (!finalWorkDescription.trim()) {
+      return; // Don't allow empty description
+    }
+
     setLoading(true);
     try {
-      await stopTimerHook();
+      const token = csrfToken || (await ensureCsrfToken());
+
+      // First update the entry with final description
+      const updateResponse = await fetch(`/api/time-entries/${activeEntryId}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { "x-csrf-token": token } : {}),
+        },
+        credentials: "same-origin",
+        body: JSON.stringify({
+          date: selectedDate,
+          workDescription: finalWorkDescription,
+          project: finalProject || undefined,
+        }),
+      });
+
+      if (!updateResponse.ok) {
+        throw new Error("Failed to update description");
+      }
+
+      // Then stop the timer via API
+      const token2 = csrfToken || (await ensureCsrfToken());
+      await fetch(`/api/time-entries/${activeEntryId}/timer`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token2 ? { "x-csrf-token": token2 } : {}),
+        },
+        credentials: "same-origin",
+        body: JSON.stringify({
+          action: "stop",
+          timestamp: new Date().toISOString(),
+        }),
+      });
+
+      // Clear timer interval and reset state immediately
+      if (timerIntervalId) {
+        clearInterval(timerIntervalId);
+        setTimerIntervalId(null);
+      }
+
       setActiveEntryId(null);
-      setWorkDescription("");
-      setProject("");
+      setLocalElapsedSeconds(0);
+      setShowStopDialog(false);
+      setFinalWorkDescription("");
+      setFinalProject("");
       onTimerStopped?.();
     } catch (error) {
       console.error("Failed to stop timer:", error);
@@ -121,12 +227,12 @@ export function TimerHero({
     <Card
       className={cn(
         "relative overflow-hidden transition-all duration-300",
-        isRunning && "border-green-500 shadow-lg shadow-green-500/20",
+        activeEntryId && "border-green-500 shadow-lg shadow-green-500/20",
         className
       )}
     >
       {/* Gradient Background */}
-      {isRunning && (
+      {activeEntryId && (
         <div className="absolute inset-0 bg-gradient-to-br from-green-500/5 via-transparent to-blue-500/5" />
       )}
 
@@ -135,46 +241,26 @@ export function TimerHero({
           {/* Timer Display */}
           <div className="space-y-2">
             <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
-              <Clock className={cn("h-4 w-4", isRunning && "animate-pulse")} />
-              <span>{isRunning ? "Timer Running" : "Ready to Start"}</span>
+              <Clock
+                className={cn("h-4 w-4", activeEntryId && "animate-pulse")}
+              />
+              <span>{activeEntryId ? "Timer Running" : "Ready to Start"}</span>
             </div>
 
             <div className="text-6xl md:text-7xl font-bold font-mono tracking-tight">
               {formatTimerDisplay(elapsedSeconds)}
             </div>
 
-            {isRunning && (
+            {activeEntryId && (
               <div className="text-2xl font-semibold text-green-600 dark:text-green-400">
                 ${currentEarnings.toFixed(2)}
               </div>
             )}
           </div>
 
-          {/* Quick Input */}
-          {!isRunning && (
-            <div className="max-w-md mx-auto space-y-3">
-              <div>
-                <Input
-                  placeholder="What are you working on?"
-                  value={workDescription}
-                  onChange={(e) => setWorkDescription(e.target.value)}
-                  className="text-center text-lg h-12"
-                />
-              </div>
-              <div>
-                <Input
-                  placeholder="Project (optional)"
-                  value={project}
-                  onChange={(e) => setProject(e.target.value)}
-                  className="text-center"
-                />
-              </div>
-            </div>
-          )}
-
           {/* Action Button */}
           <div className="flex justify-center">
-            {!isRunning ? (
+            {!activeEntryId ? (
               <Button
                 onClick={handleStart}
                 disabled={loading}
@@ -211,21 +297,79 @@ export function TimerHero({
               </Button>
             )}
           </div>
-
-          {/* Current Task */}
-          {isRunning && workDescription && (
-            <div className="max-w-md mx-auto">
-              <div className="text-sm text-muted-foreground mb-1">
-                Working on
-              </div>
-              <div className="text-lg font-medium">{workDescription}</div>
-              {project && (
-                <div className="text-sm text-muted-foreground">{project}</div>
-              )}
-            </div>
-          )}
         </div>
       </CardContent>
+
+      {/* Stop Dialog */}
+      <Dialog open={showStopDialog} onOpenChange={setShowStopDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>What did you work on?</DialogTitle>
+            <DialogDescription>
+              Please describe what you accomplished before stopping the timer.
+              This is required to save your time entry.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="final-work-description">
+                Work Description <span className="text-destructive">*</span>
+              </Label>
+              <Textarea
+                id="final-work-description"
+                placeholder="E.g., Fixed bug in user authentication, Created homepage design, etc."
+                value={finalWorkDescription}
+                onChange={(e) => setFinalWorkDescription(e.target.value)}
+                rows={3}
+                className="resize-none"
+              />
+              {!finalWorkDescription.trim() && (
+                <p className="text-xs text-destructive">
+                  This field is required
+                </p>
+              )}
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="final-project">Project (Optional)</Label>
+              <Input
+                id="final-project"
+                placeholder="Project name"
+                value={finalProject}
+                onChange={(e) => setFinalProject(e.target.value)}
+              />
+            </div>
+            <div className="text-sm text-muted-foreground">
+              <div className="flex justify-between">
+                <span>Time tracked:</span>
+                <span className="font-mono font-semibold">
+                  {formatTimerDisplay(elapsedSeconds)}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span>Earnings:</span>
+                <span className="font-semibold">
+                  ${currentEarnings.toFixed(2)}
+                </span>
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setShowStopDialog(false)}
+              disabled={loading}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={confirmStop}
+              disabled={!finalWorkDescription.trim() || loading}
+            >
+              {loading ? "Stopping..." : "Stop Timer"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 }

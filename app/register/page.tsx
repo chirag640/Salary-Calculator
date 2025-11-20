@@ -79,24 +79,33 @@ export default function RegisterPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background bg-aurora px-4 py-12">
-      <Card className="w-full max-w-md glass-card">
-        <CardHeader className="text-center">
-          <CardTitle className="text-2xl font-bold">Create Account</CardTitle>
-          <CardDescription className="text-muted-foreground">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background via-background to-muted/20 px-4 py-12">
+      <Card className="w-full max-w-md shadow-2xl border-border/50 backdrop-blur-sm">
+        <CardHeader className="text-center space-y-2 pb-6">
+          <div className="mx-auto w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mb-2">
+            <span className="text-2xl">🚀</span>
+          </div>
+          <CardTitle className="text-3xl font-bold tracking-tight">
+            Create Account
+          </CardTitle>
+          <CardDescription className="text-muted-foreground text-base">
             Sign up for your time tracker account
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-5">
             {error && (
-              <Alert variant="destructive">
-                <AlertDescription>{error}</AlertDescription>
+              <Alert variant="destructive" className="mb-4">
+                <AlertDescription className="font-medium">
+                  {error}
+                </AlertDescription>
               </Alert>
             )}
 
             <div className="space-y-2">
-              <Label htmlFor="name">Full Name</Label>
+              <Label htmlFor="name" className="text-sm font-medium">
+                Full Name
+              </Label>
               <Input
                 id="name"
                 type="text"
@@ -104,11 +113,14 @@ export default function RegisterPage() {
                 onChange={(e) => setName(e.target.value)}
                 required
                 placeholder="Enter your full name"
+                className="h-11"
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="email" className="text-sm font-medium">
+                Email
+              </Label>
               <Input
                 id="email"
                 type="email"
@@ -116,24 +128,30 @@ export default function RegisterPage() {
                 onChange={(e) => setEmail(e.target.value)}
                 required
                 placeholder="Enter your email"
+                className="h-11"
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
+              <Label htmlFor="password" className="text-sm font-medium">
+                Password
+              </Label>
               <Input
                 id="password"
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
-                placeholder="Enter your password"
+                placeholder="Enter your password (min 6 characters)"
                 minLength={6}
+                className="h-11"
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="confirmPassword">Confirm Password</Label>
+              <Label htmlFor="confirmPassword" className="text-sm font-medium">
+                Confirm Password
+              </Label>
               <Input
                 id="confirmPassword"
                 type="password"
@@ -142,27 +160,41 @@ export default function RegisterPage() {
                 required
                 placeholder="Confirm your password"
                 minLength={6}
+                className="h-11"
               />
             </div>
 
             <Button
               type="submit"
-              className="w-full"
-              variant="glass"
+              className="w-full h-11 font-semibold"
               disabled={loading}
             >
               {loading ? "Creating account..." : "Create Account"}
             </Button>
           </form>
 
-          <div className="mt-4">
+          <div className="relative my-6">
+            <div className="absolute inset-0 flex items-center">
+              <span className="w-full border-t border-border" />
+            </div>
+            <div className="relative flex justify-center text-xs uppercase">
+              <span className="bg-card px-3 text-muted-foreground font-medium">
+                Or continue with
+              </span>
+            </div>
+          </div>
+
+          <div className="mb-6">
             <GoogleSignInButton redirectTo="/profile" />
           </div>
 
-          <div className="mt-6 text-center">
+          <div className="text-center pt-4 border-t border-border">
             <p className="text-sm text-muted-foreground">
               Already have an account?{" "}
-              <Link href="/login" className="text-primary hover:underline">
+              <Link
+                href="/login"
+                className="text-primary hover:underline font-medium"
+              >
                 Sign in
               </Link>
             </p>

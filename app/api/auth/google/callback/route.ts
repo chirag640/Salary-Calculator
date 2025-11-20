@@ -235,6 +235,8 @@ export async function GET(request: NextRequest) {
       email: user.email,
       name: user.name,
       isVerified: user.isVerified,
+      profileComplete: user.profileComplete ?? false,
+      pinSetup: !!user.pinHash,
     });
 
     const response = NextResponse.redirect(`${baseUrl}${returnTo}`);

@@ -156,11 +156,16 @@ export default function LoginPage() {
   // For simplicity we skip auto-redirect here; middleware protects authenticated pages.
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background bg-aurora px-4 py-12">
-      <Card className="w-full max-w-md glass-card">
-        <CardHeader className="text-center">
-          <CardTitle className="text-2xl font-bold">Welcome Back</CardTitle>
-          <CardDescription className="text-muted-foreground">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background via-background to-muted/20 px-4 py-12">
+      <Card className="w-full max-w-md shadow-2xl border-border/50 backdrop-blur-sm">
+        <CardHeader className="text-center space-y-2 pb-6">
+          <div className="mx-auto w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mb-2">
+            <span className="text-2xl">⏱️</span>
+          </div>
+          <CardTitle className="text-3xl font-bold tracking-tight">
+            Welcome Back
+          </CardTitle>
+          <CardDescription className="text-muted-foreground text-base">
             Sign in to your time tracker account
           </CardDescription>
         </CardHeader>
@@ -192,9 +197,11 @@ export default function LoginPage() {
 
           {!showPasswordlessLogin ? (
             <>
-              <form onSubmit={handleSubmit} className="space-y-4">
+              <form onSubmit={handleSubmit} className="space-y-5">
                 <div className="space-y-2">
-                  <Label htmlFor="email">Email</Label>
+                  <Label htmlFor="email" className="text-sm font-medium">
+                    Email
+                  </Label>
                   <Input
                     id="email"
                     type="email"
@@ -202,11 +209,14 @@ export default function LoginPage() {
                     onChange={(e) => setEmail(e.target.value)}
                     required
                     placeholder="Enter your email"
+                    className="h-11"
                   />
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="password">Password</Label>
+                  <Label htmlFor="password" className="text-sm font-medium">
+                    Password
+                  </Label>
                   <Input
                     id="password"
                     type="password"
@@ -214,11 +224,12 @@ export default function LoginPage() {
                     onChange={(e) => setPassword(e.target.value)}
                     required
                     placeholder="Enter your password"
+                    className="h-11"
                   />
                   <div className="flex justify-end pt-1">
                     <Link
                       href="/forgot-password"
-                      className="text-xs text-primary hover:underline"
+                      className="text-sm text-primary hover:underline font-medium"
                     >
                       Forgot password?
                     </Link>
@@ -227,8 +238,7 @@ export default function LoginPage() {
 
                 <Button
                   type="submit"
-                  className="w-full"
-                  variant="glass"
+                  className="w-full h-11 font-semibold"
                   disabled={loading}
                 >
                   {loading ? "Signing in..." : "Sign In"}
@@ -237,10 +247,10 @@ export default function LoginPage() {
 
               <div className="relative my-6">
                 <div className="absolute inset-0 flex items-center">
-                  <span className="w-full border-t" />
+                  <span className="w-full border-t border-border" />
                 </div>
                 <div className="relative flex justify-center text-xs uppercase">
-                  <span className="bg-background px-2 text-muted-foreground">
+                  <span className="bg-card px-3 text-muted-foreground font-medium">
                     Or continue with
                   </span>
                 </div>
@@ -251,11 +261,11 @@ export default function LoginPage() {
 
                 <Button
                   variant="outline"
-                  className="w-full"
+                  className="w-full h-11"
                   onClick={() => setShowPasswordlessLogin(true)}
                   type="button"
                 >
-                  Sign in with Email Code
+                  📧 Sign in with Email Code
                 </Button>
               </div>
             </>
@@ -356,10 +366,13 @@ export default function LoginPage() {
             </>
           )}
 
-          <div className="mt-6 text-center">
+          <div className="mt-6 text-center pt-6 border-t border-border">
             <p className="text-sm text-muted-foreground">
               Don't have an account?{" "}
-              <Link href="/register" className="text-primary hover:underline">
+              <Link
+                href="/register"
+                className="text-primary hover:underline font-medium"
+              >
                 Sign up
               </Link>
             </p>

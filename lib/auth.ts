@@ -1,90 +1,110 @@
-import jwt from "jsonwebtoken"
-import bcrypt from "bcryptjs"
-import type { AuthUser } from "./types"
+import jwt from "jsonwebtoken";
+import bcrypt from "bcryptjs";
+import type { AuthUser } from "./types";
 
-const JWT_SECRET = process.env.JWT_SECRET || "your-secret-key"
+const JWT_SECRET = process.env.JWT_SECRET || "your-secret-key";
 
 export function generateToken(user: AuthUser): string {
-  return jwt.sign({ userId: user._id, email: user.email, name: user.name }, JWT_SECRET, { expiresIn: "7d" })
+  return jwt.sign(
+    {
+      userId: user._id,
+      email: user.email,
+      name: user.name,
+      profileComplete: user.profileComplete ?? false,
+      pinSetup: user.pinSetup ?? false,
+    },
+    JWT_SECRET,
+    { expiresIn: "7d" }
+  );
 }
 
 export function verifyToken(token: string): AuthUser | null {
   try {
-    const decoded = jwt.verify(token, JWT_SECRET) as any
+    const decoded = jwt.verify(token, JWT_SECRET) as any;
     return {
       _id: decoded.userId,
       email: decoded.email,
       name: decoded.name,
-    }
+      profileComplete: decoded.profileComplete ?? false,
+      pinSetup: decoded.pinSetup ?? false,
+    };
   } catch (error) {
-    return null
+    return null;
   }
 }
 
 export async function hashPassword(password: string): Promise<string> {
-  return bcrypt.hash(password, 12)
+  return bcrypt.hash(password, 12);
 }
 
-export async function comparePassword(password: string, hashedPassword: string): Promise<boolean> {
-  return bcrypt.compare(password, hashedPassword)
+export async function comparePassword(
+  password: string,
+  hashedPassword: string
+): Promise<boolean> {
+  return bcrypt.compare(password, hashedPassword);
 }
 
 // --- PIN helpers ---
 export async function hashPin(pin: string): Promise<string> {
   // Use bcrypt for short secrets; cost tuned to be reasonable for quick checks
-  return bcrypt.hash(pin, 12)
+  return bcrypt.hash(pin, 12);
 }
 
-export async function comparePin(pin: string, hashedPin: string): Promise<boolean> {
-  return bcrypt.compare(pin, hashedPin)
+export async function comparePin(
+  pin: string,
+  hashedPin: string
+): Promise<boolean> {
+  return bcrypt.compare(pin, hashedPin);
 }
 
 // reveal token (short lived) helpers
 export function generateRevealToken(userId: string, ttlSeconds = 300): string {
-  return jwt.sign({ userId, type: "reveal" }, JWT_SECRET, { expiresIn: `${ttlSeconds}s` })
+  return jwt.sign({ userId, type: "reveal" }, JWT_SECRET, {
+    expiresIn: `${ttlSeconds}s`,
+  });
 }
 
 export function verifyRevealToken(token: string): { userId: string } | null {
   try {
-    const decoded = jwt.verify(token, JWT_SECRET) as any
-    if (decoded?.type !== "reveal") return null
-    return { userId: decoded.userId }
+    const decoded = jwt.verify(token, JWT_SECRET) as any;
+    if (decoded?.type !== "reveal") return null;
+    return { userId: decoded.userId };
   } catch (e) {
-    return null
+    return null;
   }
 }
 
 export function getTokenFromRequest(request: Request): string | null {
   // 1) Check Authorization header (Bearer token)
-  const authHeader = request.headers.get("authorization")
+  const authHeader = request.headers.get("authorization");
   if (authHeader && authHeader.startsWith("Bearer ")) {
-    return authHeader.substring(7)
+    return authHeader.substring(7);
   }
 
   // 2) If Next.js NextRequest is passed, it may expose cookies via request.cookies
   try {
-    const anyReq: any = request
-    if (anyReq?.cookies && typeof anyReq.cookies.get === 'function') {
-      const cookie = anyReq.cookies.get('auth-token')
-      if (cookie && typeof cookie === 'object') return cookie.value || null
-      if (typeof cookie === 'string') return cookie || null
+    const anyReq: any = request;
+    if (anyReq?.cookies && typeof anyReq.cookies.get === "function") {
+      const cookie = anyReq.cookies.get("auth-token");
+      if (cookie && typeof cookie === "object") return cookie.value || null;
+      if (typeof cookie === "string") return cookie || null;
     }
   } catch (e) {
     // ignore and fallback to header parsing
   }
 
   // 3) Fallback: parse raw Cookie header
-  const cookieHeader = request.headers.get('cookie')
+  const cookieHeader = request.headers.get("cookie");
   if (cookieHeader) {
-    const match = cookieHeader.match(/(?:^|; )auth-token=([^;]+)/)
-    if (match) return decodeURIComponent(match[1])
+    const match = cookieHeader.match(/(?:^|; )auth-token=([^;]+)/);
+    if (match) return decodeURIComponent(match[1]);
   }
 
-  return null
+  return null;
 }
 
 export function getUserFromSession(request: Request): AuthUser | null {
-  const token = getTokenFromRequest(request)
-  if (!token) return null
-  return verifyToken(token)
+  const token = getTokenFromRequest(request);
+  if (!token) return null;
+  return verifyToken(token);
 }

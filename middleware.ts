@@ -58,6 +58,24 @@ export function middleware(request: NextRequest) {
     return NextResponse.redirect(loginUrl);
   }
 
+  // Check if user needs to complete profile setup
+  // Allow profile page and API calls, but redirect other pages to profile
+  if (pathname !== "/profile" && !pathname.startsWith("/api/")) {
+    // Decode token to check profileComplete and pinSetup status
+    try {
+      const payload = JSON.parse(
+        Buffer.from(token.split(".")[1], "base64").toString()
+      );
+      if (payload.profileComplete === false || payload.pinSetup === false) {
+        const profileUrl = new URL("/profile", request.url);
+        profileUrl.searchParams.set("onboarding", "true");
+        return NextResponse.redirect(profileUrl);
+      }
+    } catch (e) {
+      // If token decode fails, let API routes handle it
+    }
+  }
+
   // Token exists - allow request to continue
   // Note: Full JWT verification happens in API routes on the server
   return NextResponse.next();

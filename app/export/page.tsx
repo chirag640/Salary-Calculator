@@ -14,11 +14,13 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Download, Calendar } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import PinModal from "@/components/pin-modal";
 
 export default function ExportPage() {
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [loading, setLoading] = useState(false);
+  const [showPinModal, setShowPinModal] = useState(false);
   const { toast } = useToast();
 
   // Quick date presets
@@ -45,7 +47,7 @@ export default function ExportPage() {
     setEndDate(end);
   };
 
-  const handleExport = async () => {
+  const initiateExport = () => {
     if (!startDate || !endDate) {
       toast({
         title: "Dates Required",
@@ -54,15 +56,37 @@ export default function ExportPage() {
       });
       return;
     }
+    setShowPinModal(true);
+  };
 
+  const handleExport = async () => {
     setLoading(true);
     try {
-      const response = await fetch(
-        `/api/export?startDate=${startDate}&endDate=${endDate}&format=csv`,
-        { credentials: "same-origin" }
-      );
+      // Get CSRF token from cookie
+      const csrfToken = document.cookie
+        .split("; ")
+        .find((row) => row.startsWith("csrf-token="))
+        ?.split("=")[1];
 
-      if (!response.ok) throw new Error("Export failed");
+      const response = await fetch("/api/export", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(csrfToken ? { "x-csrf-token": csrfToken } : {}),
+        },
+        credentials: "same-origin",
+        body: JSON.stringify({
+          startDate,
+          endDate,
+          format: "csv",
+          includeLeave: true,
+        }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({}));
+        throw new Error(error.error || "Export failed");
+      }
 
       const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
@@ -78,10 +102,11 @@ export default function ExportPage() {
         title: "Export Complete",
         description: "Your data has been downloaded successfully",
       });
-    } catch (error) {
+    } catch (error: any) {
       toast({
         title: "Export Failed",
-        description: "Failed to export data. Please try again.",
+        description:
+          error.message || "Failed to export data. Please try again.",
         variant: "destructive",
       });
     } finally {
@@ -159,7 +184,7 @@ export default function ExportPage() {
               </div>
 
               <Button
-                onClick={handleExport}
+                onClick={initiateExport}
                 disabled={loading || !startDate || !endDate}
                 className="w-full"
                 size="lg"
@@ -178,10 +203,18 @@ export default function ExportPage() {
                 <p>• CSV format includes all time entry details</p>
                 <p>• Compatible with Excel and Google Sheets</p>
                 <p>• Includes work descriptions, projects, and earnings</p>
+                <p>• You'll be asked to enter your PIN to export salary data</p>
               </div>
             </CardContent>
           </Card>
         </div>
+
+        {/* PIN Modal */}
+        <PinModal
+          open={showPinModal}
+          onClose={() => setShowPinModal(false)}
+          onSuccess={handleExport}
+        />
       </Motion>
     </MotionProvider>
   );

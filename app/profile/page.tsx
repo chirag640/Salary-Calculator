@@ -1,81 +1,184 @@
-"use client"
+"use client";
 
-import { useEffect, useState } from "react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Button } from "@/components/ui/button"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { User, DollarSign, Clock, Save } from "lucide-react"
-import type { ProfileResponse, SalaryType } from "@/lib/types"
-import { useCsrfToken } from "@/hooks/use-csrf"
-import { useFetchWithCsrf } from "@/hooks/use-fetch-with-csrf"
-import { useToast } from "@/hooks/use-toast"
+import { Suspense, useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { User, DollarSign, Clock, Save, AlertCircle } from "lucide-react";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import type { ProfileResponse, SalaryType } from "@/lib/types";
+import { useCsrfToken } from "@/hooks/use-csrf";
+import { useFetchWithCsrf } from "@/hooks/use-fetch-with-csrf";
+import { useToast } from "@/hooks/use-toast";
 
-export default function ProfilePage() {
-  const [profile, setProfile] = useState<ProfileResponse | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [saving, setSaving] = useState(false)
+function ProfileContent() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const isOnboarding = searchParams.get("onboarding") === "true";
+
+  const [profile, setProfile] = useState<ProfileResponse | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
 
   // Basic info
-  const [name, setName] = useState("")
-  const [email, setEmail] = useState("")
-  const [phone, setPhone] = useState("")
-  
-  // Work config
-  const [hoursPerDay, setHoursPerDay] = useState<number>(8)
-  const [daysPerMonth, setDaysPerMonth] = useState<number>(22)
-  
-  // Current salary
-  const [currentSalary, setCurrentSalary] = useState<number>(0)
-  const [currentSalaryType, setCurrentSalaryType] = useState<SalaryType>("monthly")
-  const [estimatedHourly, setEstimatedHourly] = useState<number>(0)
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
 
-  const { fetchWithCsrf } = useFetchWithCsrf()
-  const { toast } = useToast()
+  // Work config
+  const [hoursPerDay, setHoursPerDay] = useState<number>(8);
+  const [daysPerMonth, setDaysPerMonth] = useState<number>(22);
+
+  // Current salary
+  const [currentSalary, setCurrentSalary] = useState<number>(0);
+  const [currentSalaryType, setCurrentSalaryType] =
+    useState<SalaryType>("monthly");
+  const [estimatedHourly, setEstimatedHourly] = useState<number>(0);
+
+  // PIN setup (for onboarding)
+  const [newPin, setNewPin] = useState<string>("");
+  const [confirmPin, setConfirmPin] = useState<string>("");
+
+  const { fetchWithCsrf } = useFetchWithCsrf();
+  const { toast } = useToast();
 
   useEffect(() => {
     const load = async () => {
       try {
-        const res = await fetchWithCsrf("/api/profile", { method: "GET" })
+        const res = await fetchWithCsrf("/api/profile", { method: "GET" });
         if (res.ok) {
-          const data: ProfileResponse = await res.json()
-          setProfile(data)
-          setName(data.name)
-          setEmail(data.email)
-          setPhone(data.contact?.phone || "")
-          setHoursPerDay(data.workingConfig?.hoursPerDay ?? 8)
-          setDaysPerMonth(data.workingConfig?.daysPerMonth ?? 22)
-          
+          const data: ProfileResponse = await res.json();
+          setProfile(data);
+          setName(data.name);
+          setEmail(data.email);
+          setPhone(data.contact?.phone || "");
+          setHoursPerDay(data.workingConfig?.hoursPerDay ?? 8);
+          setDaysPerMonth(data.workingConfig?.daysPerMonth ?? 22);
+
           if (data.salaryHistory && data.salaryHistory.length > 0) {
             const latest = data.salaryHistory
               .slice()
               .sort((a, b) => a.effectiveFrom.localeCompare(b.effectiveFrom))
-              .at(-1)!
-            setCurrentSalary(latest.amount)
-            setCurrentSalaryType(latest.salaryType)
+              .at(-1)!;
+            setCurrentSalary(latest.amount);
+            setCurrentSalaryType(latest.salaryType);
           }
         }
       } finally {
-        setLoading(false)
+        setLoading(false);
       }
-    }
-    load()
-  }, [])
+    };
+    load();
+  }, []);
 
   // Auto-calculate hourly rate
   useEffect(() => {
     if (currentSalary > 0 && hoursPerDay > 0 && daysPerMonth > 0) {
-      let monthly = currentSalary
-      if (currentSalaryType === "annual") monthly = currentSalary / 12
-      const hourly = monthly / (daysPerMonth * hoursPerDay)
-      setEstimatedHourly(Number(hourly.toFixed(2)))
+      let monthly = currentSalary;
+      if (currentSalaryType === "annual") monthly = currentSalary / 12;
+      const hourly = monthly / (daysPerMonth * hoursPerDay);
+      setEstimatedHourly(Number(hourly.toFixed(2)));
     }
-  }, [currentSalary, currentSalaryType, hoursPerDay, daysPerMonth])
+  }, [currentSalary, currentSalaryType, hoursPerDay, daysPerMonth]);
 
   const saveProfile = async () => {
-    setSaving(true)
+    // Validate required fields for onboarding
+    if (isOnboarding) {
+      if (!currentSalary || currentSalary <= 0) {
+        toast({
+          title: "Salary Required",
+          description: "Please enter your salary to continue",
+          variant: "destructive",
+        });
+        return;
+      }
+      if (!hoursPerDay || hoursPerDay <= 0) {
+        toast({
+          title: "Work Hours Required",
+          description: "Please set your working hours per day",
+          variant: "destructive",
+        });
+        return;
+      }
+      if (!newPin || newPin.length < 4) {
+        toast({
+          title: "PIN Required",
+          description:
+            "Please set a 4-digit PIN to protect your salary information",
+          variant: "destructive",
+        });
+        return;
+      }
+      if (!/^\d+$/.test(newPin)) {
+        toast({
+          title: "Invalid PIN",
+          description: "PIN must contain only numbers",
+          variant: "destructive",
+        });
+        return;
+      }
+      if (newPin !== confirmPin) {
+        toast({
+          title: "PIN Mismatch",
+          description: "PIN and confirmation do not match",
+          variant: "destructive",
+        });
+        return;
+      }
+    }
+
+    setSaving(true);
     try {
+      // First save salary if this is onboarding
+      if (isOnboarding && currentSalary > 0) {
+        const today = new Date().toISOString().slice(0, 10);
+        const salaryRes = await fetchWithCsrf("/api/profile/increment", {
+          method: "POST",
+          body: JSON.stringify({
+            salaryType: currentSalaryType,
+            amount: currentSalary,
+            effectiveFrom: today,
+            working: { hoursPerDay, daysPerMonth },
+          }),
+        });
+        if (!salaryRes.ok) {
+          throw new Error("Failed to save salary");
+        }
+      }
+
+      // If onboarding, set up PIN
+      if (isOnboarding && newPin) {
+        const pinRes = await fetchWithCsrf("/api/profile/pin", {
+          method: "POST",
+          body: JSON.stringify({ newPin }),
+        });
+        if (!pinRes.ok) {
+          const pinError = await pinRes.json();
+          toast({
+            title: "PIN Setup Failed",
+            description: pinError.error || "Could not set up PIN",
+            variant: "destructive",
+          });
+          setSaving(false);
+          return;
+        }
+      }
+
       const res = await fetchWithCsrf("/api/profile", {
         method: "PUT",
         body: JSON.stringify({
@@ -83,26 +186,37 @@ export default function ProfilePage() {
           contact: { phone },
           workingConfig: { hoursPerDay, daysPerMonth },
           defaultHourlyRate: estimatedHourly,
+          profileComplete: true, // Mark as complete
         }),
-      })
-      
+      });
+
       if (res.ok) {
-        toast({ title: "Profile saved", description: "Settings updated successfully" })
+        toast({
+          title: isOnboarding ? "Setup Complete!" : "Profile saved",
+          description: isOnboarding
+            ? "Welcome! You can now start tracking your time."
+            : "Settings updated successfully",
+        });
+
+        if (isOnboarding) {
+          // Force page reload to update JWT token and redirect
+          window.location.href = "/";
+        }
       } else {
-        toast({ title: "Save failed", variant: "destructive" })
+        toast({ title: "Save failed", variant: "destructive" });
       }
     } catch {
-      toast({ title: "Save failed", variant: "destructive" })
+      toast({ title: "Save failed", variant: "destructive" });
     } finally {
-      setSaving(false)
+      setSaving(false);
     }
-  }
+  };
 
   const updateSalary = async () => {
-    if (currentSalary <= 0) return
-    
+    if (currentSalary <= 0) return;
+
     try {
-      const today = new Date().toISOString().slice(0, 10)
+      const today = new Date().toISOString().slice(0, 10);
       const res = await fetchWithCsrf("/api/profile/increment", {
         method: "POST",
         body: JSON.stringify({
@@ -111,17 +225,20 @@ export default function ProfilePage() {
           effectiveFrom: today,
           working: { hoursPerDay, daysPerMonth },
         }),
-      })
-      
+      });
+
       if (res.ok) {
-        toast({ title: "Salary updated", description: "Hourly rate recalculated" })
+        toast({
+          title: "Salary updated",
+          description: "Hourly rate recalculated",
+        });
       } else {
-        toast({ title: "Update failed", variant: "destructive" })
+        toast({ title: "Update failed", variant: "destructive" });
       }
     } catch {
-      toast({ title: "Update failed", variant: "destructive" })
+      toast({ title: "Update failed", variant: "destructive" });
     }
-  }
+  };
 
   if (loading) {
     return (
@@ -130,15 +247,33 @@ export default function ProfilePage() {
           <Clock className="h-8 w-8 animate-spin" />
         </div>
       </div>
-    )
+    );
   }
 
   return (
     <div className="container mx-auto p-4 max-w-3xl space-y-6">
       <div>
-        <h1 className="text-3xl font-bold mb-2">Profile Settings</h1>
-        <p className="text-muted-foreground">Manage your account and work preferences</p>
+        <h1 className="text-3xl font-bold mb-2">
+          {isOnboarding ? "Complete Your Profile" : "Profile Settings"}
+        </h1>
+        <p className="text-muted-foreground">
+          {isOnboarding
+            ? "Set up your salary and work schedule to get started"
+            : "Manage your account and work preferences"}
+        </p>
       </div>
+
+      {isOnboarding && (
+        <Alert>
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>Setup Required</AlertTitle>
+          <AlertDescription>
+            Please complete your profile by entering your{" "}
+            <strong>salary</strong> and <strong>work schedule</strong>. This
+            information is required to track your time and earnings accurately.
+          </AlertDescription>
+        </Alert>
+      )}
 
       {/* Personal Info */}
       <Card>
@@ -161,7 +296,11 @@ export default function ProfilePage() {
           </div>
           <div>
             <Label>Phone</Label>
-            <Input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="Optional" />
+            <Input
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              placeholder="Optional"
+            />
           </div>
         </CardContent>
       </Card>
@@ -201,28 +340,48 @@ export default function ProfilePage() {
       </Card>
 
       {/* Salary & Hourly Rate */}
-      <Card>
+      <Card
+        className={isOnboarding && !currentSalary ? "border-amber-500" : ""}
+      >
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <DollarSign className="h-5 w-5" />
             Salary & Rate
+            {isOnboarding && (
+              <span className="text-sm text-destructive">*Required</span>
+            )}
           </CardTitle>
+          {isOnboarding && (
+            <CardDescription>
+              Your salary information is used to calculate hourly rates and
+              track earnings. This data is encrypted and kept private.
+            </CardDescription>
+          )}
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid md:grid-cols-3 gap-4">
             <div>
-              <Label>Current Salary</Label>
+              <Label>
+                Current Salary{" "}
+                {isOnboarding && <span className="text-destructive">*</span>}
+              </Label>
               <Input
                 type="number"
                 min={0}
                 step={100}
                 value={currentSalary}
                 onChange={(e) => setCurrentSalary(Number(e.target.value))}
+                className={
+                  isOnboarding && !currentSalary ? "border-amber-500" : ""
+                }
               />
             </div>
             <div>
               <Label>Type</Label>
-              <Select value={currentSalaryType} onValueChange={(v) => setCurrentSalaryType(v as SalaryType)}>
+              <Select
+                value={currentSalaryType}
+                onValueChange={(v) => setCurrentSalaryType(v as SalaryType)}
+              >
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
@@ -239,7 +398,7 @@ export default function ProfilePage() {
               </div>
             </div>
           </div>
-          
+
           <div className="flex gap-2">
             <Button onClick={updateSalary} variant="outline" size="sm">
               Update Salary
@@ -248,15 +407,91 @@ export default function ProfilePage() {
         </CardContent>
       </Card>
 
+      {/* PIN Setup - Only show during onboarding */}
+      {isOnboarding && (
+        <Card
+          className={!newPin || newPin !== confirmPin ? "border-amber-500" : ""}
+        >
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              🔒 Security PIN Setup
+              <span className="text-sm text-destructive">*Required</span>
+            </CardTitle>
+            <CardDescription>
+              Set a 4-digit PIN to protect your salary information. You'll need
+              this PIN to view your salary details.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid md:grid-cols-2 gap-4">
+              <div>
+                <Label>
+                  PIN (4+ digits) <span className="text-destructive">*</span>
+                </Label>
+                <Input
+                  type="password"
+                  inputMode="numeric"
+                  maxLength={6}
+                  value={newPin}
+                  onChange={(e) =>
+                    setNewPin(e.target.value.replace(/[^0-9]/g, ""))
+                  }
+                  placeholder="Enter 4-6 digit PIN"
+                  className={!newPin ? "border-amber-500" : ""}
+                />
+              </div>
+              <div>
+                <Label>
+                  Confirm PIN <span className="text-destructive">*</span>
+                </Label>
+                <Input
+                  type="password"
+                  inputMode="numeric"
+                  maxLength={6}
+                  value={confirmPin}
+                  onChange={(e) =>
+                    setConfirmPin(e.target.value.replace(/[^0-9]/g, ""))
+                  }
+                  placeholder="Re-enter PIN"
+                  className={
+                    confirmPin && newPin !== confirmPin
+                      ? "border-destructive"
+                      : ""
+                  }
+                />
+                {confirmPin && newPin !== confirmPin && (
+                  <p className="text-sm text-destructive mt-1">
+                    PINs do not match
+                  </p>
+                )}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Save Button */}
-      <div className="flex justify-end">
-        <Button onClick={saveProfile} disabled={saving} size="lg" className="min-w-32">
+      <div
+        className={
+          isOnboarding
+            ? "flex justify-center sticky bottom-6 z-10"
+            : "flex justify-end"
+        }
+      >
+        <Button
+          onClick={saveProfile}
+          disabled={saving}
+          size="lg"
+          className={
+            isOnboarding ? "min-w-64 h-14 text-lg shadow-xl" : "min-w-32"
+          }
+        >
           {saving ? (
-            <>Saving...</>
+            <>{isOnboarding ? "Completing Setup..." : "Saving..."}</>
           ) : (
             <>
               <Save className="mr-2 h-4 w-4" />
-              Save Changes
+              {isOnboarding ? "Complete Setup & Continue" : "Save Changes"}
             </>
           )}
         </Button>
@@ -275,14 +510,23 @@ export default function ProfilePage() {
                 .sort((a, b) => b.effectiveFrom.localeCompare(a.effectiveFrom))
                 .slice(0, 5)
                 .map((record, idx) => (
-                  <div key={idx} className="flex items-center justify-between p-3 border rounded-lg">
+                  <div
+                    key={idx}
+                    className="flex items-center justify-between p-3 border rounded-lg"
+                  >
                     <div>
                       <div className="font-medium">{record.effectiveFrom}</div>
-                      <div className="text-sm text-muted-foreground">{record.note || "Salary update"}</div>
+                      <div className="text-sm text-muted-foreground">
+                        {record.note || "Salary update"}
+                      </div>
                     </div>
                     <div className="text-right">
-                      <div className="font-semibold">${record.amount.toLocaleString()}</div>
-                      <div className="text-sm text-muted-foreground capitalize">{record.salaryType}</div>
+                      <div className="font-semibold">
+                        ${record.amount.toLocaleString()}
+                      </div>
+                      <div className="text-sm text-muted-foreground capitalize">
+                        {record.salaryType}
+                      </div>
                     </div>
                   </div>
                 ))}
@@ -291,5 +535,24 @@ export default function ProfilePage() {
         </Card>
       )}
     </div>
-  )
+  );
+}
+
+export default function ProfilePage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="container mx-auto p-6 max-w-4xl">
+          <div className="flex items-center justify-center h-64">
+            <div className="text-center">
+              <Clock className="h-8 w-8 animate-spin mx-auto mb-4" />
+              <p>Loading profile...</p>
+            </div>
+          </div>
+        </div>
+      }
+    >
+      <ProfileContent />
+    </Suspense>
+  );
 }
