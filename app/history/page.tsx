@@ -1,184 +1,114 @@
-"use client"
+"use client";
 
-import { useState, useEffect, useCallback, useRef } from "react"
-import { TimeEntryList } from "@/components/time-entry-list"
-import { SummaryDashboard } from "@/components/summary-dashboard"
-import { Button } from "@/components/ui/button"
-import type { TimeEntry } from "@/lib/types"
-import { Clock } from "lucide-react"
-import { useRouter } from "next/navigation"
-import { MotionProvider, Motion, LazyAnimatePresence, fadeInUp, staggerContainer } from "@/components/motion"
-import { useToast } from "@/hooks/use-toast"
-import { ToastAction } from "@/components/ui/toast"
-import { useCsrfToken } from "@/hooks/use-csrf"
+import { useState, useEffect, useCallback } from "react";
+import { TimeEntryList } from "@/components/time-entry-list";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import type { TimeEntry } from "@/lib/types";
+import { Clock, TrendingUp, DollarSign, Calendar } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { useToast } from "@/hooks/use-toast";
+import { ToastAction } from "@/components/ui/toast";
+import { useCsrfToken } from "@/hooks/use-csrf";
+import { format, startOfWeek, endOfWeek } from "date-fns";
 
 export default function HistoryPage() {
-  const [entries, setEntries] = useState<TimeEntry[]>([])
-  const [historyItems, setHistoryItems] = useState<TimeEntry[]>([])
-  const [nextCursor, setNextCursor] = useState<string | null>(null)
-  const [loadingMore, setLoadingMore] = useState(false)
-  const loadMoreRef = useRef<HTMLDivElement | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [showDeleted, setShowDeleted] = useState(false)
-  const router = useRouter()
-  const { toast } = useToast()
-  const { csrfToken, ensureCsrfToken } = useCsrfToken()
+  const [entries, setEntries] = useState<TimeEntry[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
+  const router = useRouter();
+  const { toast } = useToast();
+  const { csrfToken, ensureCsrfToken } = useCsrfToken();
 
-  // Fetch entries
-  const fetchEntries = async (date?: string, opts?: { append?: boolean; showDeleted?: boolean }) => {
+  const ITEMS_PER_PAGE = 30;
+
+  // Fetch entries with pagination
+  const fetchEntries = async (pageNum: number = 1) => {
     try {
-      const params = new URLSearchParams()
-      params.set('limit', '50')
-      if (date) params.set('date', date)
-      if (opts?.showDeleted) params.set('showDeleted', 'true')
-      const url = `/api/time-entries?${params.toString()}`
-      const response = await fetch(url, { credentials: "same-origin" })
-      if (!response.ok) {
-        console.error("Failed to fetch entries:", response.statusText)
-        return
-      }
-      const data = await response.json()
+      const params = new URLSearchParams();
+      params.set("limit", String(ITEMS_PER_PAGE));
+      params.set("skip", String((pageNum - 1) * ITEMS_PER_PAGE));
+
+      const response = await fetch(`/api/time-entries?${params.toString()}`, {
+        credentials: "same-origin",
+      });
+
+      if (!response.ok) throw new Error("Failed to fetch");
+
+      const data = await response.json();
       const items = (data.items || []).map((e: any) => ({
         ...e,
-        _id: typeof e?._id === 'object' ? e?._id?.$oid || e?._id?.toString?.() || String(e?._id) : e?._id,
-      }))
-      setEntries(items)
-      setHistoryItems(items)
-      setNextCursor(data.nextCursor || null)
+        _id:
+          typeof e?._id === "object" ? e?._id?.$oid || String(e?._id) : e?._id,
+      }));
+
+      setEntries(items);
+      setHasMore(items.length === ITEMS_PER_PAGE);
     } catch (error) {
-      console.error("Error fetching time entries:", error)
       toast({
-        title: "Could not load time entries",
-        description: "Please refresh or try again shortly.",
+        title: "Failed to load entries",
+        description: "Please try again",
         variant: "destructive",
-      })
+      });
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
-  const loadMore = useCallback(async () => {
-    if (!nextCursor || loadingMore) return
-    setLoadingMore(true)
-    try {
-      const params = new URLSearchParams()
-      params.set('limit', '50')
-      params.set('cursor', nextCursor)
-      if (showDeleted) params.set('showDeleted', 'true')
-      const response = await fetch(`/api/time-entries?${params.toString()}`, { credentials: "same-origin" })
-      if (response.ok) {
-        const data = await response.json()
-        const newItems = (data.items || []).map((e: any) => ({
-          ...e,
-          _id: typeof e?._id === 'object' ? e?._id?.$oid || e?._id?.toString?.() || String(e?._id) : e?._id,
-        }))
-        setHistoryItems((prev) => [...prev, ...newItems])
-        setEntries(prev => [...prev, ...newItems])
-        setNextCursor(data.nextCursor || null)
-      }
-    } catch (e) {
-      console.error('Error loading more entries', e)
-      toast({
-        title: "Could not load more history",
-        description: "Scrolling will retry automatically.",
-        variant: "destructive",
-      })
-    } finally {
-      setLoadingMore(false)
-    }
-  }, [nextCursor, loadingMore, showDeleted, toast])
-
-  // Load entries on mount
+  // Load entries on mount and page change
   useEffect(() => {
-    fetchEntries(undefined, { showDeleted })
-  }, [showDeleted])
+    setLoading(true);
+    fetchEntries(page);
+  }, [page]);
 
-  // Infinite scroll observer
-  useEffect(() => {
-    if (!loadMoreRef.current) return
-    const el = loadMoreRef.current
-    const observer = new IntersectionObserver((entriesObs) => {
-      if (entriesObs[0].isIntersecting) {
-        loadMore()
-      }
-    }, { rootMargin: '200px' })
-    observer.observe(el)
-    return () => observer.disconnect()
-  }, [loadMore, nextCursor])
+  // Calculate quick stats
+  const weekStart = startOfWeek(new Date(), { weekStartsOn: 1 });
+  const weekEnd = endOfWeek(new Date(), { weekStartsOn: 1 });
+  const thisWeekEntries = entries.filter((e) => {
+    const date = new Date(e.date);
+    return date >= weekStart && date <= weekEnd;
+  });
+  const weekHours = thisWeekEntries.reduce((sum, e) => sum + e.totalHours, 0);
+  const weekEarnings = thisWeekEntries.reduce(
+    (sum, e) => sum + e.totalEarnings,
+    0
+  );
+  const totalHours = entries.reduce((sum, e) => sum + e.totalHours, 0);
+  const totalEarnings = entries.reduce((sum, e) => sum + e.totalEarnings, 0);
 
   // Handle delete
   const handleDelete = async (id: string) => {
+    if (!confirm("Delete this entry?")) return;
+
     try {
-      const removedEntry = entries.find(e => e._id === id)
-      setEntries(prev => prev.filter(e => e._id !== id))
-      setHistoryItems(prev => prev.filter(e => e._id !== id))
-      const token = csrfToken || (await ensureCsrfToken())
-      const url = `/api/time-entries/${id}${showDeleted ? '?hard=true' : ''}`
-      const response = await fetch(url, { 
-        method: "DELETE", 
-        headers: token ? { "x-csrf-token": token } : {}, 
-        credentials: "same-origin" 
-      })
-      
+      setEntries((prev) => prev.filter((e) => e._id !== id));
+      const token = csrfToken || (await ensureCsrfToken());
+
+      const response = await fetch(`/api/time-entries/${id}`, {
+        method: "DELETE",
+        headers: token ? { "x-csrf-token": token } : {},
+        credentials: "same-origin",
+      });
+
       if (!response.ok) {
-        await fetchEntries()
-        toast({
-          title: "Delete failed",
-          description: "The server rejected the deletion.",
-          variant: "destructive",
-        })
-        return
+        fetchEntries(page);
+        toast({ title: "Delete failed", variant: "destructive" });
+      } else {
+        toast({ title: "Entry deleted" });
       }
-
-      // Handle soft delete with undo option
-      const body = await response.json().catch(() => null)
-      const restoreToken = body?.restoreToken
-      const expiresInMs = body?.expiresInMs
-      let undo = false
-
-      toast({
-        title: "Entry deleted",
-        description: restoreToken ? "Undo within 15s to restore." : "Entry removed permanently.",
-        action: restoreToken ? (
-          <ToastAction altText="Undo" onClick={async () => {
-            undo = true
-            try {
-              const token = csrfToken || (await ensureCsrfToken())
-              const undoRes = await fetch(`/api/time-entries/${id}/restore`, {
-                method: 'POST',
-                headers: { "Content-Type": "application/json", ...(token ? { "x-csrf-token": token } : {}) },
-                credentials: 'same-origin',
-                body: JSON.stringify({ restoreToken }),
-              })
-              if (undoRes.ok) {
-                await fetchEntries(undefined, { showDeleted })
-                toast({ title: 'Undo successful', description: 'Entry restored.' })
-              } else {
-                toast({ title: 'Undo failed', description: 'Restore window may have expired.', variant: 'destructive' })
-              }
-            } catch {
-              toast({ title: 'Undo failed', description: 'Network error.', variant: 'destructive' })
-            }
-          }}>Undo</ToastAction>
-        ) : undefined,
-      })
     } catch (error) {
-      console.error("Error deleting entry:", error)
-      toast({
-        title: "Delete failed",
-        description: "Network or server error occurred.",
-        variant: "destructive",
-      })
-      try { await fetchEntries() } catch {}
+      fetchEntries(page);
+      toast({ title: "Delete failed", variant: "destructive" });
     }
-  }
+  };
 
   // Handle edit - navigate to main page with the entry
   const handleEdit = (entry: TimeEntry) => {
     // Store the entry to edit in sessionStorage so the main page can pick it up
-    sessionStorage.setItem('editingEntry', JSON.stringify(entry))
-    router.push(`/?date=${entry.date}`)
-  }
+    sessionStorage.setItem("editingEntry", JSON.stringify(entry));
+    router.push(`/?date=${entry.date}`);
+  };
 
   if (loading) {
     return (
@@ -190,65 +120,129 @@ export default function HistoryPage() {
           </div>
         </div>
       </div>
-    )
+    );
   }
 
   return (
-    <MotionProvider>
-    <Motion>
-    <div className="container mx-auto max-w-6xl">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold mb-2">History & Summary</h1>
-        <p className="text-muted-foreground">View your complete time tracking history and analytics</p>
-  </div>
-
-      {/* Summary Dashboard */}
-      <div className="mb-8">
-        <SummaryDashboard entries={entries} />
+    <div className="container mx-auto max-w-6xl p-4 space-y-6">
+      <div>
+        <h1 className="text-3xl font-bold mb-2">History</h1>
+        <p className="text-muted-foreground">Your time tracking records</p>
       </div>
 
-      {/* History List */}
-  <div>
+      {/* Quick Stats */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex items-center gap-2 mb-2">
+              <Calendar className="h-4 w-4 text-blue-500" />
+              <span className="text-sm text-muted-foreground">This Week</span>
+            </div>
+            <div className="text-2xl font-bold">{weekHours.toFixed(1)}h</div>
+            <div className="text-xs text-muted-foreground">
+              ${weekEarnings.toFixed(0)}
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex items-center gap-2 mb-2">
+              <Clock className="h-4 w-4 text-green-500" />
+              <span className="text-sm text-muted-foreground">Total Hours</span>
+            </div>
+            <div className="text-2xl font-bold">{totalHours.toFixed(1)}h</div>
+            <div className="text-xs text-muted-foreground">
+              {entries.length} entries
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex items-center gap-2 mb-2">
+              <DollarSign className="h-4 w-4 text-purple-500" />
+              <span className="text-sm text-muted-foreground">
+                Total Earnings
+              </span>
+            </div>
+            <div className="text-2xl font-bold">
+              ${totalEarnings.toFixed(0)}
+            </div>
+            <div className="text-xs text-muted-foreground">All time</div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex items-center gap-2 mb-2">
+              <TrendingUp className="h-4 w-4 text-orange-500" />
+              <span className="text-sm text-muted-foreground">Page</span>
+            </div>
+            <div className="text-2xl font-bold">{page}</div>
+            <div className="text-xs text-muted-foreground">
+              {ITEMS_PER_PAGE} per page
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Entries List */}
+      <div>
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-2xl font-semibold">All Entries</h2>
-          <div className="flex items-center gap-4">
-            <label className="flex items-center gap-2 text-sm cursor-pointer select-none">
-              <input
-                type="checkbox"
-                className="accent-primary"
-                checked={showDeleted}
-                onChange={(e) => setShowDeleted(e.target.checked)}
-              />
-              Show deleted
-            </label>
-            <Button size="sm" variant="outline" onClick={() => fetchEntries(undefined, { showDeleted })}>
-              Refresh
-            </Button>
-          </div>
+          <h2 className="text-xl font-semibold">Entries</h2>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => fetchEntries(page)}
+          >
+            Refresh
+          </Button>
         </div>
-        
-        {showDeleted && (
-          <p className="text-xs text-muted-foreground mb-4">
-            Soft-deleted items are shown in red
-          </p>
-        )}
 
-        {historyItems.length > 0 ? (
-          <TimeEntryList entries={historyItems} onEdit={handleEdit} onDelete={handleDelete} />
+        {entries.length > 0 ? (
+          <>
+            <TimeEntryList
+              entries={entries}
+              onEdit={handleEdit}
+              onDelete={handleDelete}
+            />
+
+            {/* Pagination */}
+            <div className="flex items-center justify-center gap-2 mt-6">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                disabled={page === 1 || loading}
+              >
+                Previous
+              </Button>
+              <span className="text-sm text-muted-foreground px-4">
+                Page {page}
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setPage((p) => p + 1)}
+                disabled={!hasMore || loading}
+              >
+                Next
+              </Button>
+            </div>
+          </>
         ) : (
-          <div className="text-center py-12 text-muted-foreground">
-            <Clock className="h-16 w-16 mx-auto mb-4 opacity-50" />
-            <h3 className="text-lg font-medium mb-2">No entries yet</h3>
-            <p className="text-sm">Start tracking your time to see your history here</p>
-          </div>
+          <Card className="py-16">
+            <CardContent className="text-center">
+              <Clock className="h-16 w-16 mx-auto mb-4 opacity-30" />
+              <h3 className="text-lg font-medium mb-2">No entries</h3>
+              <p className="text-sm text-muted-foreground">
+                Start tracking time to see history
+              </p>
+            </CardContent>
+          </Card>
         )}
-
-        <div ref={loadMoreRef} className="h-10 flex items-center justify-center text-xs text-muted-foreground mt-4">
-          {nextCursor ? (loadingMore ? 'Loading more...' : 'Scroll to load more') : historyItems.length > 0 ? 'End of history' : ''}
-        </div>
       </div>
     </div>
-    </Motion>
-    </MotionProvider>
-  )
+  );
 }
