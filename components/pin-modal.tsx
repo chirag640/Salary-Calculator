@@ -1,67 +1,68 @@
-"use client"
+"use client";
 
-import React, { useEffect, useRef, useState } from "react"
+import React, { useEffect, useRef, useState } from "react";
 
 type PinModalProps = {
-  open: boolean
-  onClose: () => void
-  onSuccess: () => void
-}
+  open: boolean;
+  onClose: () => void;
+  onSuccess: () => void;
+};
 
 export default function PinModal({ open, onClose, onSuccess }: PinModalProps) {
-  const [pin, setPin] = useState("")
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [attemptsLeft, setAttemptsLeft] = useState<number | null>(null)
-  const inputRef = useRef<HTMLInputElement | null>(null)
+  const [pin, setPin] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [attemptsLeft, setAttemptsLeft] = useState<number | null>(null);
+  const inputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     if (open) {
-      setPin("")
-      setError(null)
-      setAttemptsLeft(null)
-      setTimeout(() => inputRef.current?.focus(), 0)
+      setPin("");
+      setError(null);
+      setAttemptsLeft(null);
+      setTimeout(() => inputRef.current?.focus(), 0);
     }
-  }, [open])
+  }, [open]);
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
-      if (!open) return
-      if (e.key === "Escape") onClose()
+      if (!open) return;
+      if (e.key === "Escape") onClose();
     }
-    window.addEventListener("keydown", onKey)
-    return () => window.removeEventListener("keydown", onKey)
-  }, [open, onClose])
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open, onClose]);
 
-  if (!open) return null
+  if (!open) return null;
 
   async function handleSubmit(e?: React.FormEvent) {
-    e?.preventDefault()
-    setLoading(true)
-    setError(null)
+    e?.preventDefault();
+    setLoading(true);
+    setError(null);
     try {
       const res = await fetch("/api/auth/pin/verify", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
         body: JSON.stringify({ pin }),
-      })
+      });
 
       if (!res.ok) {
-        const data = await res.json().catch(() => ({}))
-        setError(data?.message || "Incorrect PIN")
-        if (typeof data?.attemptsLeft === "number") setAttemptsLeft(data.attemptsLeft)
-        setLoading(false)
-        return
+        const data = await res.json().catch(() => ({}));
+        setError(data?.message || "Incorrect PIN");
+        if (typeof data?.attemptsLeft === "number")
+          setAttemptsLeft(data.attemptsLeft);
+        setLoading(false);
+        return;
       }
 
       // success
-      setLoading(false)
-      onSuccess()
-      onClose()
+      setLoading(false);
+      onSuccess();
+      onClose();
     } catch (err) {
-      setLoading(false)
-      setError("Network error")
+      setLoading(false);
+      setError("Network error");
     }
   }
 
@@ -70,35 +71,25 @@ export default function PinModal({ open, onClose, onSuccess }: PinModalProps) {
       role="dialog"
       aria-modal="true"
       aria-labelledby="pin-modal-title"
-      className="pin-modal-backdrop"
-      style={{
-        position: "fixed",
-        inset: 0,
-        background: "rgba(0,0,0,0.4)",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        zIndex: 9999,
-      }}
+      className="fixed inset-0 bg-black/40 dark:bg-black/60 flex items-center justify-center z-[9999]"
       onMouseDown={onClose}
     >
       <div
         onMouseDown={(e) => e.stopPropagation()}
-        style={{
-          background: "white",
-          padding: 20,
-          width: 360,
-          borderRadius: 8,
-          boxShadow: "0 6px 24px rgba(0,0,0,0.2)",
-        }}
+        className="bg-background border border-border p-5 w-[360px] rounded-lg shadow-2xl"
       >
-        <h2 id="pin-modal-title" style={{ margin: 0, marginBottom: 8 }}>
+        <h2 id="pin-modal-title" className="text-lg font-semibold mb-2">
           Enter your privacy PIN
         </h2>
-        <p style={{ marginTop: 0, color: "#444", fontSize: 13 }}>This keeps sensitive values hidden until you confirm.</p>
+        <p className="text-sm text-muted-foreground mb-4">
+          This keeps sensitive values hidden until you confirm.
+        </p>
 
         <form onSubmit={handleSubmit}>
-          <label htmlFor="pin-input" style={{ display: "block", marginBottom: 6 }}>
+          <label
+            htmlFor="pin-input"
+            className="block text-sm font-medium mb-1.5"
+          >
             PIN
           </label>
           <input
@@ -110,35 +101,29 @@ export default function PinModal({ open, onClose, onSuccess }: PinModalProps) {
             onChange={(e) => setPin(e.target.value.replace(/[^0-9]/g, ""))}
             maxLength={6}
             placeholder="••••"
-            style={{
-              width: "100%",
-              padding: "8px 10px",
-              fontSize: 16,
-              boxSizing: "border-box",
-              marginBottom: 8,
-            }}
+            className="w-full px-3 py-2 text-base border border-input bg-background rounded-md mb-2 focus:outline-none focus:ring-2 focus:ring-ring"
             aria-label="Enter your privacy PIN"
           />
 
           {error && (
-            <div role="alert" style={{ color: "#b82525", marginBottom: 8 }}>
+            <div role="alert" className="text-destructive text-sm mb-2">
               {error}
               {attemptsLeft != null ? ` — ${attemptsLeft} attempts left` : null}
             </div>
           )}
 
-          <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+          <div className="flex gap-2 justify-end">
             <button
               type="button"
               onClick={onClose}
-              style={{ padding: "8px 12px", background: "transparent", border: "1px solid #ddd", borderRadius: 6 }}
+              className="px-4 py-2 bg-transparent border border-input rounded-md hover:bg-accent transition-colors"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={loading || pin.length < 4}
-              style={{ padding: "8px 12px", background: "#111827", color: "white", border: "none", borderRadius: 6 }}
+              className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {loading ? "Checking..." : "Reveal"}
             </button>
@@ -146,5 +131,5 @@ export default function PinModal({ open, onClose, onSuccess }: PinModalProps) {
         </form>
       </div>
     </div>
-  )
+  );
 }

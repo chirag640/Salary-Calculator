@@ -74,9 +74,11 @@ function ProfileContent() {
             const latest = data.salaryHistory
               .slice()
               .sort((a, b) => a.effectiveFrom.localeCompare(b.effectiveFrom))
-              .at(-1)!;
-            setCurrentSalary(latest.amount);
-            setCurrentSalaryType(latest.salaryType);
+              .at(-1);
+            if (latest && latest.amount != null) {
+              setCurrentSalary(latest.amount);
+              setCurrentSalaryType(latest.salaryType || "monthly");
+            }
           }
         }
       } finally {
@@ -93,6 +95,8 @@ function ProfileContent() {
       if (currentSalaryType === "annual") monthly = currentSalary / 12;
       const hourly = monthly / (daysPerMonth * hoursPerDay);
       setEstimatedHourly(Number(hourly.toFixed(2)));
+    } else if (currentSalary === 0) {
+      setEstimatedHourly(0);
     }
   }, [currentSalary, currentSalaryType, hoursPerDay, daysPerMonth]);
 
@@ -161,7 +165,25 @@ function ProfileContent() {
         }
       }
 
-      // If onboarding, set up PIN
+      // Update profile first
+      const res = await fetchWithCsrf("/api/profile", {
+        method: "PUT",
+        body: JSON.stringify({
+          name,
+          contact: { phone },
+          workingConfig: { hoursPerDay, daysPerMonth },
+          defaultHourlyRate: estimatedHourly,
+          profileComplete: true, // Mark as complete
+        }),
+      });
+
+      if (!res.ok) {
+        toast({ title: "Save failed", variant: "destructive" });
+        setSaving(false);
+        return;
+      }
+
+      // If onboarding, set up PIN (this will regenerate token with pinSetup: true)
       if (isOnboarding && newPin) {
         const pinRes = await fetchWithCsrf("/api/profile/pin", {
           method: "POST",
@@ -179,31 +201,17 @@ function ProfileContent() {
         }
       }
 
-      const res = await fetchWithCsrf("/api/profile", {
-        method: "PUT",
-        body: JSON.stringify({
-          name,
-          contact: { phone },
-          workingConfig: { hoursPerDay, daysPerMonth },
-          defaultHourlyRate: estimatedHourly,
-          profileComplete: true, // Mark as complete
-        }),
+      // Success!
+      toast({
+        title: isOnboarding ? "Setup Complete!" : "Profile saved",
+        description: isOnboarding
+          ? "Welcome! You can now start tracking your time."
+          : "Settings updated successfully",
       });
 
-      if (res.ok) {
-        toast({
-          title: isOnboarding ? "Setup Complete!" : "Profile saved",
-          description: isOnboarding
-            ? "Welcome! You can now start tracking your time."
-            : "Settings updated successfully",
-        });
-
-        if (isOnboarding) {
-          // Force page reload to update JWT token and redirect
-          window.location.href = "/";
-        }
-      } else {
-        toast({ title: "Save failed", variant: "destructive" });
+      if (isOnboarding) {
+        // Force page reload to update JWT token and redirect
+        window.location.href = "/";
       }
     } catch {
       toast({ title: "Save failed", variant: "destructive" });
@@ -228,9 +236,18 @@ function ProfileContent() {
       });
 
       if (res.ok) {
+        // Refresh profile to get updated salary history
+        const profileRes = await fetchWithCsrf("/api/profile", {
+          method: "GET",
+        });
+        if (profileRes.ok) {
+          const data = await profileRes.json();
+          setProfile(data);
+        }
+
         toast({
           title: "Salary updated",
-          description: "Hourly rate recalculated",
+          description: "Hourly rate recalculated and saved",
         });
       } else {
         toast({ title: "Update failed", variant: "destructive" });
@@ -393,7 +410,7 @@ function ProfileContent() {
             </div>
             <div>
               <Label>Hourly Rate</Label>
-              <div className="text-2xl font-bold text-green-600 pt-2">
+              <div className="text-2xl font-bold text-green-600 dark:text-green-400 pt-2">
                 ${estimatedHourly.toFixed(2)}
               </div>
             </div>
@@ -522,10 +539,12 @@ function ProfileContent() {
                     </div>
                     <div className="text-right">
                       <div className="font-semibold">
-                        ${record.amount.toLocaleString()}
+                        {record.amount != null
+                          ? `$${record.amount.toLocaleString()}`
+                          : "••••••"}
                       </div>
                       <div className="text-sm text-muted-foreground capitalize">
-                        {record.salaryType}
+                        {record.salaryType || "monthly"}
                       </div>
                     </div>
                   </div>

@@ -45,7 +45,7 @@ export function Achievements({
       description: "Log your first time entry",
       icon: <Star className="h-5 w-5" />,
       unlocked: totalEntries >= 1,
-      color: "text-yellow-500",
+      color: "text-yellow-500 dark:text-yellow-400",
     },
     {
       id: "streak-3",
@@ -55,7 +55,7 @@ export function Achievements({
       unlocked: streak >= 3,
       progress: Math.min(streak, 3),
       target: 3,
-      color: "text-orange-500",
+      color: "text-orange-500 dark:text-orange-400",
     },
     {
       id: "streak-7",
@@ -65,7 +65,7 @@ export function Achievements({
       unlocked: streak >= 7,
       progress: Math.min(streak, 7),
       target: 7,
-      color: "text-blue-500",
+      color: "text-blue-500 dark:text-blue-400",
     },
     {
       id: "streak-30",
@@ -75,7 +75,7 @@ export function Achievements({
       unlocked: streak >= 30,
       progress: Math.min(streak, 30),
       target: 30,
-      color: "text-purple-500",
+      color: "text-purple-500 dark:text-purple-400",
     },
     {
       id: "hours-10",
@@ -85,7 +85,7 @@ export function Achievements({
       unlocked: totalHours >= 10,
       progress: Math.min(totalHours, 10),
       target: 10,
-      color: "text-green-500",
+      color: "text-green-500 dark:text-green-400",
     },
     {
       id: "hours-100",
@@ -95,7 +95,7 @@ export function Achievements({
       unlocked: totalHours >= 100,
       progress: Math.min(totalHours, 100),
       target: 100,
-      color: "text-pink-500",
+      color: "text-pink-500 dark:text-pink-400",
     },
     {
       id: "week-40",
@@ -105,7 +105,7 @@ export function Achievements({
       unlocked: weekHours >= 40,
       progress: Math.min(weekHours, 40),
       target: 40,
-      color: "text-indigo-500",
+      color: "text-indigo-500 dark:text-indigo-400",
     },
   ];
 
@@ -140,7 +140,7 @@ export function Achievements({
         <CardHeader>
           <div className="flex items-center justify-between">
             <CardTitle className="flex items-center gap-2">
-              <Trophy className="h-5 w-5 text-yellow-500" />
+              <Trophy className="h-5 w-5 text-yellow-500 dark:text-yellow-400" />
               Achievements
             </CardTitle>
             <Badge variant="secondary">

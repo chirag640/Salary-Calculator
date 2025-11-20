@@ -42,7 +42,7 @@ export function WeeklyGoals({
     <Card className={cn("", className)}>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <Target className="h-5 w-5 text-blue-500" />
+          <Target className="h-5 w-5 text-blue-500 dark:text-blue-400" />
           Weekly Goals
         </CardTitle>
       </CardHeader>

@@ -1,48 +1,60 @@
-"use client"
+"use client";
 
-import React, { useEffect, useMemo, useState } from "react"
-import PinModal from "../pin-modal"
+import React, { useEffect, useMemo, useState } from "react";
+import PinModal from "../pin-modal";
 
 type MaskedValueProps = {
-  value: string | number
-  format?: (v: string | number) => string
-  ariaLabel?: string
-  className?: string
-  ttlSeconds?: number
-}
+  value: string | number;
+  format?: (v: string | number) => string;
+  ariaLabel?: string;
+  className?: string;
+  ttlSeconds?: number;
+};
 
-export default function MaskedValue({ value, format, ariaLabel, className, ttlSeconds = 300 }: MaskedValueProps) {
-  const [isOpen, setIsOpen] = useState(false)
-  const [revealed, setRevealed] = useState(false)
-  const [expiry, setExpiry] = useState<number | null>(null)
+export default function MaskedValue({
+  value,
+  format,
+  ariaLabel,
+  className,
+  ttlSeconds = 300,
+}: MaskedValueProps) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [revealed, setRevealed] = useState(false);
+  const [expiry, setExpiry] = useState<number | null>(null);
 
-  const text = useMemo(() => (format ? format(value) : String(value)), [value, format])
+  const text = useMemo(
+    () => (format ? format(value) : String(value)),
+    [value, format]
+  );
 
   useEffect(() => {
-    if (!revealed) return
+    if (!revealed) return;
     if (!expiry) {
-      const until = Date.now() + ttlSeconds * 1000
-      setExpiry(until)
+      const until = Date.now() + ttlSeconds * 1000;
+      setExpiry(until);
     }
 
     const id = setInterval(() => {
-      if (!expiry) return
+      if (!expiry) return;
       if (Date.now() > expiry) {
-        setRevealed(false)
-        setExpiry(null)
+        setRevealed(false);
+        setExpiry(null);
       }
-    }, 1000)
+    }, 1000);
 
-    return () => clearInterval(id)
-  }, [revealed, expiry, ttlSeconds])
+    return () => clearInterval(id);
+  }, [revealed, expiry, ttlSeconds]);
 
   function handleSuccess() {
-    setRevealed(true)
-    setExpiry(Date.now() + ttlSeconds * 1000)
+    setRevealed(true);
+    setExpiry(Date.now() + ttlSeconds * 1000);
   }
 
   return (
-    <span className={className} style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+    <span
+      className={className}
+      style={{ display: "inline-flex", alignItems: "center", gap: 8 }}
+    >
       <span
         aria-hidden={revealed}
         aria-label={ariaLabel || "Hidden value"}
@@ -53,7 +65,18 @@ export default function MaskedValue({ value, format, ariaLabel, className, ttlSe
           minWidth: 48,
         }}
       >
-        {revealed ? <span>{text}</span> : <span style={{ color: "transparent", textShadow: "0 0 6px rgba(0,0,0,0.5)" }}>{text}</span>}
+        {revealed ? (
+          <span>{text}</span>
+        ) : (
+          <span
+            style={{
+              color: "transparent",
+              textShadow: "0 0 6px rgba(0,0,0,0.5)",
+            }}
+          >
+            {text}
+          </span>
+        )}
       </span>
 
       <div>
@@ -62,26 +85,30 @@ export default function MaskedValue({ value, format, ariaLabel, className, ttlSe
             onClick={() => setIsOpen(true)}
             aria-label="Reveal sensitive value"
             title="Reveal"
-            style={{ padding: "4px 8px", borderRadius: 6, border: "1px solid #ddd", background: "white" }}
+            className="px-2 py-1 text-xs rounded border border-border bg-background hover:bg-accent transition-colors"
           >
             Reveal
           </button>
         ) : (
           <button
             onClick={() => {
-              setRevealed(false)
-              setExpiry(null)
+              setRevealed(false);
+              setExpiry(null);
             }}
             aria-label="Hide sensitive value"
             title="Hide"
-            style={{ padding: "4px 8px", borderRadius: 6, border: "1px solid #ddd", background: "white" }}
+            className="px-2 py-1 text-xs rounded border border-border bg-background hover:bg-accent transition-colors"
           >
             Hide
           </button>
         )}
       </div>
 
-      <PinModal open={isOpen} onClose={() => setIsOpen(false)} onSuccess={handleSuccess} />
+      <PinModal
+        open={isOpen}
+        onClose={() => setIsOpen(false)}
+        onSuccess={handleSuccess}
+      />
     </span>
-  )
+  );
 }

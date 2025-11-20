@@ -117,22 +117,18 @@ export function Insights({ entries, className }: InsightsProps) {
         );
       }
 
-      // Total earnings milestone
+      // Total earnings milestone - amounts hidden for privacy
       const totalEarnings = entries.reduce(
         (sum, e) => sum + e.totalEarnings,
         0
       );
       if (totalEarnings > 10000) {
         newInsights.push(
-          `💰 You've earned over $${totalEarnings.toFixed(
-            0
-          )} total - impressive!`
+          `💰 You've earned a significant amount - impressive work!`
         );
       } else if (totalEarnings > 5000) {
         newInsights.push(
-          `💵 You're at $${totalEarnings.toFixed(
-            0
-          )} total earnings - halfway to $10k!`
+          `💵 You're making great progress on your earnings goals!`
         );
       }
 
@@ -148,7 +144,7 @@ export function Insights({ entries, className }: InsightsProps) {
     <Card className={className}>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <Lightbulb className="h-5 w-5 text-yellow-500" />
+          <Lightbulb className="h-5 w-5 text-yellow-500 dark:text-yellow-400" />
           Insights
         </CardTitle>
       </CardHeader>

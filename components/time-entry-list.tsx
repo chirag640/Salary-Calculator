@@ -87,8 +87,14 @@ export function TimeEntryList({
               </h3>
               <div className="flex gap-4 text-sm">
                 <Badge variant="secondary">{formatTime(totalHours)}</Badge>
-                <Badge variant="outline" className="text-green-600">
-                  {formatCurrency(totalEarnings)}
+                <Badge
+                  variant="outline"
+                  className="text-green-600 dark:text-green-400"
+                >
+                  <MaskedValue
+                    value={totalEarnings}
+                    format={(v) => formatCurrency(Number(v))}
+                  />
                 </Badge>
               </div>
             </div>
@@ -150,7 +156,7 @@ export function TimeEntryList({
 
                           <div className="flex items-center gap-4 text-sm text-muted-foreground mb-2">
                             <span>{formatTime(entry.totalHours)}</span>
-                            <span className="text-green-600 font-medium">
+                            <span className="text-green-600 dark:text-green-400 font-medium">
                               <MaskedValue
                                 value={entry.totalEarnings}
                                 format={(v) => `$${Number(v).toFixed(2)}`}

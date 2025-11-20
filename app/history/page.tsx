@@ -11,6 +11,7 @@ import { useToast } from "@/hooks/use-toast";
 import { ToastAction } from "@/components/ui/toast";
 import { useCsrfToken } from "@/hooks/use-csrf";
 import { format, startOfWeek, endOfWeek } from "date-fns";
+import MaskedValue from "@/components/ui/masked-value";
 
 export default function HistoryPage() {
   const [entries, setEntries] = useState<TimeEntry[]>([]);
@@ -135,7 +136,7 @@ export default function HistoryPage() {
         <Card>
           <CardContent className="pt-6">
             <div className="flex items-center gap-2 mb-2">
-              <Calendar className="h-4 w-4 text-blue-500" />
+              <Calendar className="h-4 w-4 text-blue-500 dark:text-blue-400" />
               <span className="text-sm text-muted-foreground">This Week</span>
             </div>
             <div className="text-2xl font-bold">{weekHours.toFixed(1)}h</div>
@@ -148,7 +149,7 @@ export default function HistoryPage() {
         <Card>
           <CardContent className="pt-6">
             <div className="flex items-center gap-2 mb-2">
-              <Clock className="h-4 w-4 text-green-500" />
+              <Clock className="h-4 w-4 text-green-500 dark:text-green-400" />
               <span className="text-sm text-muted-foreground">Total Hours</span>
             </div>
             <div className="text-2xl font-bold">{totalHours.toFixed(1)}h</div>
@@ -161,7 +162,7 @@ export default function HistoryPage() {
         <Card>
           <CardContent className="pt-6">
             <div className="flex items-center gap-2 mb-2">
-              <DollarSign className="h-4 w-4 text-purple-500" />
+              <DollarSign className="h-4 w-4 text-purple-500 dark:text-purple-400" />
               <span className="text-sm text-muted-foreground">
                 Total Earnings
               </span>
@@ -176,7 +177,7 @@ export default function HistoryPage() {
         <Card>
           <CardContent className="pt-6">
             <div className="flex items-center gap-2 mb-2">
-              <TrendingUp className="h-4 w-4 text-orange-500" />
+              <TrendingUp className="h-4 w-4 text-orange-500 dark:text-orange-400" />
               <span className="text-sm text-muted-foreground">Page</span>
             </div>
             <div className="text-2xl font-bold">{page}</div>

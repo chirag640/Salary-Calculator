@@ -3,6 +3,7 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { Clock, DollarSign, TrendingUp } from "lucide-react";
 import { cn } from "@/lib/utils";
+import MaskedValue from "@/components/ui/masked-value";
 
 interface StatsGridProps {
   todayHours: number;
@@ -38,7 +39,7 @@ export function StatsGrid({
         <CardContent className="pt-6">
           <div className="flex items-center gap-2 mb-2">
             <div className="p-2 rounded-lg bg-blue-500/10">
-              <Clock className="h-4 w-4 text-blue-500" />
+              <Clock className="h-4 w-4 text-blue-500 dark:text-blue-400" />
             </div>
             <span className="text-sm text-muted-foreground">Today</span>
           </div>
@@ -46,7 +47,10 @@ export function StatsGrid({
             {todayHours.toFixed(1)}h
           </div>
           <div className="text-xs text-muted-foreground">
-            ${todayEarnings.toFixed(0)}
+            <MaskedValue
+              value={todayEarnings}
+              format={(v) => `$${Number(v).toFixed(0)}`}
+            />
           </div>
         </CardContent>
       </Card>
@@ -56,13 +60,16 @@ export function StatsGrid({
         <CardContent className="pt-6">
           <div className="flex items-center gap-2 mb-2">
             <div className="p-2 rounded-lg bg-green-500/10">
-              <TrendingUp className="h-4 w-4 text-green-500" />
+              <TrendingUp className="h-4 w-4 text-green-500 dark:text-green-400" />
             </div>
             <span className="text-sm text-muted-foreground">This Week</span>
           </div>
           <div className="text-3xl font-bold mb-1">{weekHours.toFixed(1)}h</div>
           <div className="text-xs text-muted-foreground">
-            ${weekEarnings.toFixed(0)}
+            <MaskedValue
+              value={weekEarnings}
+              format={(v) => `$${Number(v).toFixed(0)}`}
+            />
           </div>
         </CardContent>
       </Card>
@@ -88,7 +95,7 @@ export function StatsGrid({
         <CardContent className="pt-6">
           <div className="flex items-center gap-2 mb-2">
             <div className="p-2 rounded-lg bg-purple-500/10">
-              <DollarSign className="h-4 w-4 text-purple-500" />
+              <DollarSign className="h-4 w-4 text-purple-500 dark:text-purple-400" />
             </div>
             <span className="text-sm text-muted-foreground">Top Project</span>
           </div>

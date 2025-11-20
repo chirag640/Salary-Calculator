@@ -14,6 +14,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Play, Square, Clock } from "lucide-react";
+import MaskedValue from "@/components/ui/masked-value";
 import { useTimer, formatTimerDisplay } from "@/hooks/use-timer";
 import { useCsrfToken } from "@/hooks/use-csrf";
 import { cn } from "@/lib/utils";
@@ -253,7 +254,10 @@ export function TimerHero({
 
             {activeEntryId && (
               <div className="text-2xl font-semibold text-green-600 dark:text-green-400">
-                ${currentEarnings.toFixed(2)}
+                <MaskedValue
+                  value={currentEarnings}
+                  format={(v) => `$${Number(v).toFixed(2)}`}
+                />
               </div>
             )}
           </div>
@@ -348,7 +352,10 @@ export function TimerHero({
               <div className="flex justify-between">
                 <span>Earnings:</span>
                 <span className="font-semibold">
-                  ${currentEarnings.toFixed(2)}
+                  <MaskedValue
+                    value={currentEarnings}
+                    format={(v: string | number) => `$${Number(v).toFixed(2)}`}
+                  />
                 </span>
               </div>
             </div>
