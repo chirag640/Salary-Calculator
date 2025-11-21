@@ -10,6 +10,11 @@ import {
 } from "@/lib/otp";
 import { sanitizeEmail } from "@/lib/validation/auth";
 import { rateLimit, buildRateLimitKey } from "@/lib/rate-limit";
+import { handleCors, handleOptions } from "@/lib/cors";
+
+export async function OPTIONS() {
+  return handleOptions();
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -163,10 +168,10 @@ export async function POST(request: NextRequest) {
       path: "/",
     });
 
-    return response;
+    return handleCors(response);
   } catch (error) {
     console.error("OTP verification error:", error);
-    return NextResponse.json(
+    const errorResponse = NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }
     );

@@ -4,6 +4,11 @@ import { connectToDatabase } from "@/lib/mongodb";
 import { comparePassword, generateToken } from "@/lib/auth";
 import { sanitizeEmail, isValidEmail } from "@/lib/validation/auth";
 import { rateLimit, buildRateLimitKey } from "@/lib/rate-limit";
+import { handleCors, handleOptions } from "@/lib/cors";
+
+export async function OPTIONS() {
+  return handleOptions();
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -11,9 +16,11 @@ export async function POST(request: NextRequest) {
     const { email, password } = body;
 
     if (!email || !password) {
-      return NextResponse.json(
-        { error: "Email and password are required" },
-        { status: 400 }
+      return handleCors(
+        NextResponse.json(
+          { error: "Email and password are required" },
+          { status: 400 }
+        )
       );
     }
 
@@ -21,9 +28,8 @@ export async function POST(request: NextRequest) {
 
     // Validate email format
     if (!isValidEmail(sanitizedEmail)) {
-      return NextResponse.json(
-        { error: "Invalid email format" },
-        { status: 400 }
+      return handleCors(
+        NextResponse.json({ error: "Invalid email format" }, { status: 400 })
       );
     }
 
@@ -35,17 +41,19 @@ export async function POST(request: NextRequest) {
     const rateLimitKey = buildRateLimitKey(ip, `login:${sanitizedEmail}`);
     const rateLimitResult = rateLimit(rateLimitKey, {
       windowMs: 15 * 60 * 1000,
-      max: 5,
-    }); // 5 attempts per 15 minutes
+      max: 10, // Increased from 5 to 10
+    }); // 10 attempts per 15 minutes
 
     if (!rateLimitResult.ok) {
-      return NextResponse.json(
-        {
-          error:
-            "Too many login attempts. Please try again later or use the 'Forgot Password' option.",
-          retryAfter: rateLimitResult.retryAfter,
-        },
-        { status: 429 }
+      return handleCors(
+        NextResponse.json(
+          {
+            error:
+              "Too many login attempts. Please try again later or use the 'Forgot Password' option.",
+            retryAfter: rateLimitResult.retryAfter,
+          },
+          { status: 429 }
+        )
       );
     }
 
@@ -56,28 +64,34 @@ export async function POST(request: NextRequest) {
 
     // Generic error message to prevent user enumeration
     if (!user) {
-      return NextResponse.json(
-        { error: "Invalid email or password" },
-        { status: 401 }
+      return handleCors(
+        NextResponse.json(
+          { error: "Invalid email or password" },
+          { status: 401 }
+        )
       );
     }
 
     // Check if user has a password (OAuth-only users don't)
     if (!user.password) {
-      return NextResponse.json(
-        {
-          error:
-            "This account uses social login. Please sign in with Google or use 'Sign in with Email' to receive a login code.",
-        },
-        { status: 401 }
+      return handleCors(
+        NextResponse.json(
+          {
+            error:
+              "This account uses social login. Please sign in with Google or use 'Sign in with Email' to receive a login code.",
+          },
+          { status: 401 }
+        )
       );
     }
 
     const isValidPassword = await comparePassword(password, user.password);
     if (!isValidPassword) {
-      return NextResponse.json(
-        { error: "Invalid email or password" },
-        { status: 401 }
+      return handleCors(
+        NextResponse.json(
+          { error: "Invalid email or password" },
+          { status: 401 }
+        )
       );
     }
 
@@ -109,12 +123,11 @@ export async function POST(request: NextRequest) {
       path: "/",
     });
 
-    return response;
+    return handleCors(response);
   } catch (error) {
     console.error("Login error:", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 }
+    return handleCors(
+      NextResponse.json({ error: "Internal server error" }, { status: 500 })
     );
   }
 }

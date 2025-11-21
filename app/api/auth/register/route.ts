@@ -12,6 +12,12 @@ import {
   sanitizeName,
 } from "@/lib/validation/auth";
 import { rateLimit, buildRateLimitKey } from "@/lib/rate-limit";
+import { handleCors, handleOptions } from "@/lib/cors";
+
+// Handle OPTIONS for CORS
+export async function OPTIONS() {
+  return handleOptions();
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -61,16 +67,16 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Rate limiting
+    // Rate limiting - more lenient for development
     const ip =
       request.headers.get("x-forwarded-for") ||
       request.headers.get("x-real-ip") ||
       "unknown";
     const rateLimitKey = buildRateLimitKey(ip, "register");
     const rateLimitResult = rateLimit(rateLimitKey, {
-      windowMs: 60 * 60 * 1000,
-      max: 5,
-    }); // 5 per hour
+      windowMs: 15 * 60 * 1000, // 15 minutes window
+      max: 10, // 10 attempts per 15 minutes
+    });
 
     if (!rateLimitResult.ok) {
       return NextResponse.json(
@@ -133,13 +139,11 @@ export async function POST(request: NextRequest) {
     } catch (emailError) {
       console.error("Failed to send OTP email:", emailError);
       // Clean up OTP
-      await db
-        .collection("auth_otps")
-        .deleteOne({
-          email: sanitizedEmail,
-          purpose: "registration",
-          used: false,
-        });
+      await db.collection("auth_otps").deleteOne({
+        email: sanitizedEmail,
+        purpose: "registration",
+        used: false,
+      });
       return NextResponse.json(
         { error: "Failed to send verification email. Please try again." },
         { status: 500 }
@@ -149,16 +153,19 @@ export async function POST(request: NextRequest) {
     // Mask email for response
     const maskedEmail = sanitizedEmail.replace(/(.{2})(.*)(@.*)/, "$1***$3");
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       message: "Verification code sent",
       email: maskedEmail,
       expiresIn: OTP_CONFIG.EXPIRY_MINUTES * 60, // seconds
     });
+
+    return handleCors(response);
   } catch (error) {
     console.error("Registration error:", error);
-    return NextResponse.json(
+    const response = NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }
     );
+    return handleCors(response);
   }
 }

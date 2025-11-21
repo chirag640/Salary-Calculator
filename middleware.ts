@@ -37,6 +37,11 @@ export function middleware(request: NextRequest) {
     pathname.startsWith(asset)
   );
 
+  // Allow all API routes to pass through (authentication happens in the route handlers)
+  if (pathname.startsWith("/api/")) {
+    return NextResponse.next();
+  }
+
   if (isPublicRoute || isPublicApi || isPublicAsset) {
     return NextResponse.next();
   }
