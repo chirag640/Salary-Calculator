@@ -101,6 +101,11 @@ export async function POST(request: NextRequest) {
     const isValid = await verifyOTP(otp, otpRecord.otpHash);
 
     if (!isValid) {
+      console.log(
+        `❌ Invalid OTP for ${sanitizedEmail}: Got ${otp}, Attempts: ${
+          otpRecord.attempts + 1
+        }`
+      );
       // Increment attempts
       await db
         .collection("auth_otps")
@@ -116,6 +121,8 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
+
+    console.log(`✅ Valid OTP for ${sanitizedEmail}, creating user...`);
 
     // OTP is valid - create user
     const { name, hashedPassword } = otpRecord.metadata;
@@ -150,6 +157,12 @@ export async function POST(request: NextRequest) {
 
     const response = NextResponse.json({
       message: "Registration successful",
+      token, // Include token in response body for mobile apps
+      userId: result.insertedId.toString(),
+      email: sanitizedEmail,
+      name,
+      profileComplete: false,
+      pinSetup: false,
       user: {
         _id: result.insertedId.toString(),
         email: sanitizedEmail,

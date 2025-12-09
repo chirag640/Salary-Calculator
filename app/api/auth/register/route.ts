@@ -90,10 +90,10 @@ export async function POST(request: NextRequest) {
 
     const { db } = await connectToDatabase();
 
-    // Check if user already exists
+    // Check if user already exists with verified email
     const existingUser = await db
       .collection("users")
-      .findOne({ email: sanitizedEmail });
+      .findOne({ email: sanitizedEmail, isVerified: true });
     if (existingUser) {
       // Return error so user knows they should login instead
       return NextResponse.json(
@@ -104,6 +104,12 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
+
+    // Delete any existing pending OTP for this email (allow re-registration)
+    await db.collection("auth_otps").deleteMany({
+      email: sanitizedEmail,
+      purpose: "registration",
+    });
 
     // Hash password for later use (stored temporarily with OTP)
     const hashedPassword = await hashPassword(password);
@@ -136,6 +142,8 @@ export async function POST(request: NextRequest) {
         purpose: "registration",
         expiryMinutes: OTP_CONFIG.EXPIRY_MINUTES,
       });
+
+      console.log(`✅ OTP sent to ${sanitizedEmail}: ${otp}`);
     } catch (emailError) {
       console.error("Failed to send OTP email:", emailError);
       // Clean up OTP

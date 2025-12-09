@@ -8,8 +8,17 @@ export const runtime = "nodejs";
 
 export async function GET(request: NextRequest) {
   try {
-    const cookieToken = request.cookies.get("auth-token")?.value;
-    const userFromToken = cookieToken ? verifyToken(cookieToken) : null;
+    // Support both Bearer token and cookie authentication
+    const authHeader = request.headers.get("authorization");
+    let token: string | undefined;
+
+    if (authHeader && authHeader.startsWith("Bearer ")) {
+      token = authHeader.substring(7);
+    } else {
+      token = request.cookies.get("auth-token")?.value;
+    }
+
+    const userFromToken = token ? verifyToken(token) : null;
     const userId = userFromToken?._id;
     if (!userId)
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -57,8 +66,17 @@ export async function GET(request: NextRequest) {
 
 export async function PUT(request: NextRequest) {
   try {
-    const cookieToken = request.cookies.get("auth-token")?.value;
-    const userFromToken = cookieToken ? verifyToken(cookieToken) : null;
+    // Support both Bearer token and cookie authentication
+    const authHeader = request.headers.get("authorization");
+    let token: string | undefined;
+
+    if (authHeader && authHeader.startsWith("Bearer ")) {
+      token = authHeader.substring(7);
+    } else {
+      token = request.cookies.get("auth-token")?.value;
+    }
+
+    const userFromToken = token ? verifyToken(token) : null;
     const userId = userFromToken?._id;
     if (!userId)
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

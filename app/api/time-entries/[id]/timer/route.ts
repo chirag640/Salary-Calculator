@@ -2,7 +2,7 @@ import { type NextRequest, NextResponse } from "next/server";
 import { connectToDatabase } from "@/lib/mongodb";
 import type { TimeEntry, TimerState } from "@/lib/types";
 import { ObjectId } from "mongodb";
-import { verifyToken } from "@/lib/auth";
+import { getUserFromSession } from "@/lib/auth";
 import { validateCsrf } from "@/lib/csrf";
 import { rateLimit, buildRateLimitKey } from "@/lib/rate-limit";
 
@@ -74,9 +74,8 @@ export async function POST(
     // In Next.js App Router, `params` may be a promise-like; await to access properties safely
     const resolvedParams = (await params) as { id: string };
     const id = resolvedParams.id;
-    const cookieToken = request.cookies.get("auth-token")?.value;
-    const userFromToken = cookieToken ? verifyToken(cookieToken) : null;
-    const userId = userFromToken?._id;
+    const user = getUserFromSession(request);
+    const userId = user?._id;
 
     if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -312,9 +311,8 @@ export async function GET(
   { params }: { params: { id: string } }
 ) {
   try {
-    const cookieToken = request.cookies.get("auth-token")?.value;
-    const userFromToken = cookieToken ? verifyToken(cookieToken) : null;
-    const userId = userFromToken?._id;
+    const user = getUserFromSession(request);
+    const userId = user?._id;
 
     if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

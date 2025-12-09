@@ -141,6 +141,12 @@ export async function POST(request: NextRequest) {
 
     const response = NextResponse.json({
       message: "Login successful",
+      token, // Include token for mobile apps
+      userId: user._id.toString(),
+      email: user.email,
+      name: user.name,
+      profileComplete: user.profileComplete ?? false,
+      pinSetup: !!user.pinHash,
       user: {
         _id: user._id.toString(),
         email: user.email,
