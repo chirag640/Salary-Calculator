@@ -81,3 +81,127 @@ export function decrypt(encryptedData: string): string {
 export function isEncryptionConfigured(): boolean {
   return !!process.env.ENCRYPTION_KEY
 }
+
+/**
+ * ========================================
+ * Financial Data Encryption (Salary, Rates, Earnings)
+ * ========================================
+ */
+
+/**
+ * Encrypt a number value (for hourly rates, earnings, salaries)
+ * Returns format: iv:authTag:encrypted (all in hex)
+ */
+export function encryptNumber(value: number): string {
+  try {
+    const key = getEncryptionKey()
+    const iv = crypto.randomBytes(IV_LENGTH)
+    
+    const cipher = crypto.createCipheriv(ALGORITHM, key, iv)
+    
+    // Convert number to string with precision
+    const valueStr = value.toFixed(2) // Keep 2 decimal places
+    
+    let encrypted = cipher.update(valueStr, 'utf8', 'hex')
+    encrypted += cipher.final('hex')
+    
+    const authTag = cipher.getAuthTag()
+    
+    // Format: iv:authTag:encrypted (same as encrypt() for consistency)
+    return `${iv.toString('hex')}:${authTag.toString('hex')}:${encrypted}`
+  } catch (error) {
+    console.error('Number encryption error:', error)
+    throw new Error('Failed to encrypt number')
+  }
+}
+
+/**
+ * Decrypt an encrypted number value
+ */
+export function decryptNumber(encryptedValue: string): number {
+  try {
+    const key = getEncryptionKey()
+    const parts = encryptedValue.split(':')
+    
+    if (parts.length !== 3) {
+      throw new Error('Invalid encrypted number format')
+    }
+    
+    const iv = Buffer.from(parts[0], 'hex')
+    const authTag = Buffer.from(parts[1], 'hex')
+    const encrypted = parts[2]
+    
+    const decipher = crypto.createDecipheriv(ALGORITHM, key, iv)
+    decipher.setAuthTag(authTag)
+    
+    let decrypted = decipher.update(encrypted, 'hex', 'utf8')
+    decrypted += decipher.final('utf8')
+    
+    return parseFloat(decrypted)
+  } catch (error) {
+    console.error('Number decryption error:', error)
+    throw new Error('Failed to decrypt number')
+  }
+}
+
+/**
+ * Check if a value is encrypted
+ */
+export function isEncrypted(value: any): boolean {
+  return typeof value === 'string' && value.includes(':') && value.split(':').length === 3
+}
+
+/**
+ * Safe decrypt - handles both encrypted and plain numbers
+ * Provides backward compatibility with existing unencrypted data
+ */
+export function safeDecrypt(value: any): number {
+  if (typeof value === 'number') {
+    // Already decrypted (legacy data)
+    return value
+  }
+  
+  if (typeof value === 'string' && isEncrypted(value)) {
+    // Encrypted data
+    try {
+      return decryptNumber(value)
+    } catch (error) {
+      console.error('Error decrypting value, returning 0:', error)
+      return 0
+    }
+  }
+  
+  // Try to parse as number
+  const parsed = parseFloat(value)
+  return isNaN(parsed) ? 0 : parsed
+}
+
+/**
+ * Batch encrypt multiple numbers
+ */
+export function encryptNumbers(values: number[]): string[] {
+  return values.map(encryptNumber)
+}
+
+/**
+ * Batch decrypt multiple values
+ */
+export function decryptNumbers(encryptedValues: string[]): number[] {
+  return encryptedValues.map(decryptNumber)
+}
+
+/**
+ * Batch safe decrypt (backward compatible)
+ */
+export function safeDecryptNumbers(values: any[]): number[] {
+  return values.map(safeDecrypt)
+}
+
+/**
+ * Generate a secure encryption key
+ * Use this to generate ENCRYPTION_KEY for .env
+ * Run: node -e "const crypto = require('crypto'); console.log(crypto.randomBytes(32).toString('hex'))"
+ */
+export function generateEncryptionKey(): string {
+  return crypto.randomBytes(32).toString('hex')
+}

@@ -8,6 +8,7 @@ import type {
 } from "@/lib/types";
 import { validateCsrf } from "@/lib/csrf";
 import { rateLimit, buildRateLimitKey } from "@/lib/rate-limit";
+import { encryptNumber } from "@/lib/encryption";
 
 export const runtime = "nodejs";
 
@@ -77,11 +78,20 @@ export async function POST(request: NextRequest) {
         ? Math.round((monthlyAmount / hoursPerMonth) * 100) / 100
         : 0;
 
+    // Encrypt salary record amount before saving
+    const encryptedRecord: any = {
+      ...record,
+      amount: encryptNumber(record.amount),
+    };
+
+    // Encrypt defaultHourlyRate before saving
+    const encryptedHourlyRate = encryptNumber(defaultHourlyRate);
+
     const update: any = {
-      $push: { salaryHistory: { $each: [record] } },
+      $push: { salaryHistory: { $each: [encryptedRecord] } },
       $set: {
         updatedAt: new Date(),
-        defaultHourlyRate, // Update default hourly rate
+        defaultHourlyRate: encryptedHourlyRate, // Encrypted hourly rate
       },
     };
     await db

@@ -3,6 +3,8 @@ import { connectToDatabase } from "@/lib/mongodb";
 import { verifyToken, verifyRevealToken } from "@/lib/auth";
 import { validateCsrf } from "@/lib/csrf";
 import type { UpdateProfileRequest, ProfileResponse } from "@/lib/types";
+import { safeDecrypt, encryptNumber } from "@/lib/encryption";
+import { decryptSalaryRecords } from "@/lib/db-encryption-middleware";
 
 export const runtime = "nodejs";
 
@@ -27,7 +29,7 @@ export async function GET(request: NextRequest) {
     // is valid and belongs to the same user.
     const revealCookie = request.cookies.get("reveal-token")?.value;
     const revealValid = revealCookie ? verifyRevealToken(revealCookie) : null;
-    const allowReveal = revealValid && revealValid.userId === userId;
+    const allowReveal = revealValid &&  revealValid.userId === userId;
 
     const { db } = await connectToDatabase();
     const user = await db
@@ -35,11 +37,22 @@ export async function GET(request: NextRequest) {
       .findOne({ _id: new (require("mongodb").ObjectId)(userId) });
     if (!user)
       return NextResponse.json({ error: "User not found" }, { status: 404 });
-    const salaryHistory = (user.salaryHistory || []).map((rec: any) => ({
+    
+    // Decrypt salary history (backward compatible with unencrypted data)
+    const decryptedSalaryHistory = user.salaryHistory 
+      ? decryptSalaryRecords(user.salaryHistory)
+      : [];
+    
+    const salaryHistory = decryptedSalaryHistory.map((rec: any) => ({
       ...rec,
       // redact amount unless reveal allowed
       amount: allowReveal ? rec.amount : null,
     }));
+
+    // Decrypt defaultHourlyRate (backward compatible)
+    const decryptedHourlyRate = user.defaultHourlyRate 
+      ? safeDecrypt(user.defaultHourlyRate)
+      : undefined;
 
     const resp: ProfileResponse = {
       _id: user._id.toString(),
@@ -50,8 +63,8 @@ export async function GET(request: NextRequest) {
       overtime: user.overtime,
       salaryHistory,
       defaultHourlyRate:
-        allowReveal && typeof user.defaultHourlyRate === "number"
-          ? user.defaultHourlyRate
+        allowReveal && decryptedHourlyRate !== undefined
+          ? decryptedHourlyRate
           : undefined,
       showEarnings: user.showEarnings ?? false, // Default to false for privacy
     };
@@ -92,6 +105,11 @@ export async function PUT(request: NextRequest) {
 
     const body: UpdateProfileRequest = await request.json();
     const update: any = { ...body, updatedAt: new Date() };
+    
+    // Encrypt defaultHourlyRate if present
+    if (body.defaultHourlyRate !== undefined && body.defaultHourlyRate !== null) {
+      update.defaultHourlyRate = encryptNumber(body.defaultHourlyRate);
+    }
 
     const { db } = await connectToDatabase();
     await db

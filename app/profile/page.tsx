@@ -19,12 +19,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { User, DollarSign, Clock, Save, AlertCircle } from "lucide-react";
+import { User, DollarSign, Clock, Save, AlertCircle, Lock, Eye, EyeOff } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import type { ProfileResponse, SalaryType } from "@/lib/types";
 import { useCsrfToken } from "@/hooks/use-csrf";
 import { useFetchWithCsrf } from "@/hooks/use-fetch-with-csrf";
 import { useToast } from "@/hooks/use-toast";
+import MaskedValue from "@/components/ui/masked-value";
 
 function ProfileContent() {
   const router = useRouter();
@@ -53,6 +54,11 @@ function ProfileContent() {
   // PIN setup (for onboarding)
   const [newPin, setNewPin] = useState<string>("");
   const [confirmPin, setConfirmPin] = useState<string>("");
+  
+  // PIN update (for existing users)
+  const [showPinUpdate, setShowPinUpdate] = useState(false);
+  const [oldPin, setOldPin] = useState<string>("");
+  const [updatingPin, setUpdatingPin] = useState(false);
 
   const { fetchWithCsrf } = useFetchWithCsrf();
   const { toast } = useToast();
@@ -411,7 +417,14 @@ function ProfileContent() {
             <div>
               <Label>Hourly Rate</Label>
               <div className="text-2xl font-bold text-green-600 dark:text-green-400 pt-2">
-                ${estimatedHourly.toFixed(2)}
+                {isOnboarding ? (
+                  `$${estimatedHourly.toFixed(2)}`
+                ) : (
+                  <MaskedValue
+                    value={estimatedHourly}
+                    format={(v) => `$${Number(v).toFixed(2)}`}
+                  />
+                )}
               </div>
             </div>
           </div>
@@ -539,9 +552,14 @@ function ProfileContent() {
                     </div>
                     <div className="text-right">
                       <div className="font-semibold">
-                        {record.amount != null
-                          ? `$${record.amount.toLocaleString()}`
-                          : "••••••"}
+                        {record.amount != null ? (
+                          <MaskedValue
+                            value={record.amount}
+                            format={(v) => `$${Number(v).toLocaleString()}`}
+                          />
+                        ) : (
+                          "••••••"
+                        )}
                       </div>
                       <div className="text-sm text-muted-foreground capitalize">
                         {record.salaryType || "monthly"}
@@ -550,6 +568,151 @@ function ProfileContent() {
                   </div>
                 ))}
             </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* PIN Management - For existing users */}
+      {!isOnboarding && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Lock className="h-5 w-5" />
+              Security PIN
+            </CardTitle>
+            <CardDescription>
+              Change your privacy PIN to protect sensitive financial information
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {!showPinUpdate ? (
+              <Button
+                onClick={() => setShowPinUpdate(true)}
+                variant="outline"
+                className="w-full md:w-auto"
+              >
+                <Lock className="mr-2 h-4 w-4" />
+                Update PIN
+              </Button>
+            ) : (
+              <form
+                onSubmit={async (e) => {
+                  e.preventDefault();
+                  if (newPin !== confirmPin) {
+                    toast({
+                      title: "PIN Mismatch",
+                      description: "New PINs do not match",
+                      variant: "destructive",
+                    });
+                    return;
+                  }
+                  setUpdatingPin(true);
+                  try {
+                    // Send both old and new PIN to the endpoint
+                    const updateRes = await fetchWithCsrf("/api/profile/pin", {
+                      method: "POST",
+                      body: JSON.stringify({ 
+                        currentPin: oldPin,
+                        newPin 
+                      }),
+                    });
+                    
+                    if (updateRes.ok) {
+                      toast({
+                        title: "PIN Updated",
+                        description: "Your security PIN has been changed successfully",
+                      });
+                      setShowPinUpdate(false);
+                      setOldPin("");
+                      setNewPin("");
+                      setConfirmPin("");
+                    } else {
+                      const error = await updateRes.json();
+                      toast({
+                        title: "Update Failed",
+                        description: error.error || "Could not update PIN",
+                        variant: "destructive",
+                      });
+                    }
+                  } catch {
+                    toast({
+                      title: "Error",
+                      description: "Failed to update PIN",
+                      variant: "destructive",
+                    });
+                  } finally {
+                    setUpdatingPin(false);
+                  }
+                }}
+                className="space-y-4"
+              >
+                <div>
+                  <Label>Current PIN</Label>
+                  <Input
+                    type="password"
+                    inputMode="numeric"
+                    maxLength={6}
+                    value={oldPin}
+                    onChange={(e) => setOldPin(e.target.value.replace(/[^0-9]/g, ""))}
+                    placeholder="Enter current PIN"
+                  />
+                </div>
+                <div className="grid md:grid-cols-2 gap-4">
+                  <div>
+                    <Label>New PIN</Label>
+                    <Input
+                      type="password"
+                      inputMode="numeric"
+                      maxLength={6}
+                      value={newPin}
+                      onChange={(e) => setNewPin(e.target.value.replace(/[^0-9]/g, ""))}
+                      placeholder="Enter new PIN"
+                    />
+                  </div>
+                  <div>
+                    <Label>Confirm New PIN</Label>
+                    <Input
+                      type="password"
+                      inputMode="numeric"
+                      maxLength={6}
+                      value={confirmPin}
+                      onChange={(e) => setConfirmPin(e.target.value.replace(/[^0-9]/g, ""))}
+                      placeholder="Confirm new PIN"
+                    />
+                  </div>
+                </div>
+                {newPin && confirmPin && newPin !== confirmPin && (
+                  <p className="text-sm text-destructive">PINs do not match</p>
+                )}
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => {
+                      setShowPinUpdate(false);
+                      setOldPin("");
+                      setNewPin("");
+                      setConfirmPin("");
+                    }}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    type="submit"
+                    disabled={
+                      updatingPin ||
+                      !oldPin ||
+                      !newPin ||
+                      !confirmPin ||
+                      newPin !== confirmPin ||
+                      newPin.length < 4
+                    }
+                  >
+                    {updatingPin ? "Updating..." : "Update PIN"}
+                  </Button>
+                </div>
+              </form>
+            )}
           </CardContent>
         </Card>
       )}

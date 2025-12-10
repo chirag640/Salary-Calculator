@@ -519,17 +519,6 @@ export function TimeEntryForm({
                           : calculation.totalHours}
                       </div>
                     </div>
-                    <div>
-                      <div className="text-xs md:text-sm text-muted-foreground mb-1">
-                        Estimated Earnings
-                      </div>
-                      <div className="text-xl md:text-3xl font-bold text-green-600 dark:text-green-300">
-                        <MaskedValue
-                          value={calculation.totalEarnings}
-                          format={(v) => `$${Number(v).toFixed(2)}`}
-                        />
-                      </div>
-                    </div>
                   </div>
                   {calculation.totalHours === 0 && (
                     <p className="text-xs text-muted-foreground mt-2">

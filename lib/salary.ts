@@ -1,5 +1,7 @@
 import type { Db } from "mongodb"
 import type { OvertimeConfig, SalaryRecord, SalaryType, WorkingConfig } from "@/lib/types"
+import { safeDecrypt } from "./encryption"
+import { decryptSalaryRecords } from "./db-encryption-middleware"
 
 // Very small in-memory LRU-style cache for (userId|date) -> {hourlyRate, working, overtime}
 // NOTE: Single-process only; acceptable as micro-optimization. Size kept tiny to avoid unbounded memory.
@@ -98,7 +100,12 @@ export async function getEffectiveHourlyRateForDate(
   if (cached) return cached
   const user = await db.collection("users").findOne({ _id: new (require("mongodb").ObjectId)(userId) })
   if (!user) return { hourlyRate: 0 }
-  const salaryHistory: SalaryRecord[] = user.salaryHistory || []
+  
+  // Decrypt salary history (backward compatible with unencrypted data)
+  const salaryHistory: SalaryRecord[] = user.salaryHistory 
+    ? decryptSalaryRecords(user.salaryHistory)
+    : []
+  
   const workingConfig: WorkingConfig | undefined = user.workingConfig
   const overtime: OvertimeConfig | undefined = user.overtime
   const effective = pickEffectiveSalaryRecord(salaryHistory, date)
@@ -115,8 +122,9 @@ export async function getEffectiveHourlyRateForDate(
       return val
     }
 
-    const fallbackRate = (user && typeof (user.defaultHourlyRate) === 'number' && user.defaultHourlyRate > 0)
-      ? user.defaultHourlyRate
+    // Decrypt defaultHourlyRate (backward compatible)
+    const fallbackRate = (user && user.defaultHourlyRate)
+      ? safeDecrypt(user.defaultHourlyRate)
       : 0
     const val = { hourlyRate: fallbackRate, working: workingConfig, overtime }
     setCache(userId, date, val)

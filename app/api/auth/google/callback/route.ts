@@ -162,6 +162,8 @@ export async function GET(request: NextRequest) {
           password: undefined, // OAuth-only user (no password)
           googleId: profile.id,
           isVerified: true, // Google verified the email
+          profileComplete: false, // Require profile setup (salary, work config)
+          pinHash: null, // No PIN set yet
           createdAt: now,
           updatedAt: now,
         });
@@ -239,7 +241,13 @@ export async function GET(request: NextRequest) {
       pinSetup: !!user.pinHash,
     });
 
-    const response = NextResponse.redirect(`${baseUrl}${returnTo}`);
+    // Check if user needs onboarding (new user or incomplete profile)
+    const needsOnboarding = user.profileComplete === false || !user.pinHash;
+    const redirectUrl = needsOnboarding 
+      ? `${baseUrl}/profile?onboarding=true`
+      : `${baseUrl}${returnTo}`;
+
+    const response = NextResponse.redirect(redirectUrl);
     response.cookies.set("auth-token", token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
