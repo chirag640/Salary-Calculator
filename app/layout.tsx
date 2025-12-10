@@ -102,6 +102,7 @@ export default function RootLayout({
         <meta name="language" content="English" />
         <meta name="rating" content="General" />
         <meta name="referrer" content="origin-when-cross-origin" />
+        <meta name="google-site-verification" content="LVPG-QZuQ31P_RHyfiMkGau9rkc3ERxQUKLKq9oaEWU" />
       </head>
       <body className={`font-sans ${GeistSans.variable} ${GeistMono.variable}`}>
         <ThemeProvider 
