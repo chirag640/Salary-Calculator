@@ -29,7 +29,7 @@ export async function sendPasswordResetEmail({ to, name, token }: SendResetEmail
   const baseUrl = process.env.APP_URL || "http://localhost:3000"
   const resetUrl = `${baseUrl}/reset-password?token=${encodeURIComponent(token)}`
 
-  const fromName = process.env.MAIL_FROM_NAME || "Time Tracker Support"
+  const fromName = process.env.MAIL_FROM_NAME || "Salary Calculator Support"
   const fromEmail = process.env.MAIL_FROM_EMAIL || process.env.SMTP_USER || "no-reply@example.com"
 
   const html = `
@@ -49,7 +49,7 @@ export async function sendPasswordResetEmail({ to, name, token }: SendResetEmail
   await transporter.sendMail({
     from: `${fromName} <${fromEmail}>`,
     to,
-    subject: "Reset your Time Tracker password",
+    subject: "Reset your Salary Calculator password",
     html,
     text: `Hi ${name || "there"},\n\nReset your password using the link (valid 15 min): ${resetUrl}\nIf you didn't request this you can ignore it.\n`,
   })
@@ -65,7 +65,7 @@ interface SendOTPEmailParams {
 
 export async function sendOTPEmail({ to, name, otp, purpose, expiryMinutes = 10 }: SendOTPEmailParams) {
   const transporter = createTransporter()
-  const fromName = process.env.MAIL_FROM_NAME || "Time Tracker Support"
+  const fromName = process.env.MAIL_FROM_NAME || "Salary Calculator Support"
   const fromEmail = process.env.MAIL_FROM_EMAIL || process.env.SMTP_USER || "no-reply@example.com"
 
   // Mask email for privacy (show first 2 chars and domain)

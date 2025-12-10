@@ -24,7 +24,7 @@ interface SendEmailOptions {
 
 export async function sendEmail(options: SendEmailOptions): Promise<boolean> {
   try {
-    const from = options.from || process.env.SMTP_FROM || 'Time Tracker <noreply@timetracker.app>'
+    const from = options.from || process.env.SMTP_FROM || 'Salary Calculator <noreply@salarycalc.app>'
     
     const info = await transporter.sendMail({
       from,
@@ -204,7 +204,7 @@ export async function sendWeeklySummaryEmail(
         </div>
       </div>
       <div class="footer">
-        <p>You're receiving this email because you enabled weekly summaries in your Time Tracker settings.</p>
+        <p>You're receiving this email because you enabled weekly summaries in your Salary Calculator settings.</p>
         <p><a href="${process.env.NEXT_PUBLIC_APP_URL}/profile#notifications">Manage notification preferences</a></p>
       </div>
     </body>

@@ -1,0 +1,24 @@
+# Robots.txt for Salary Calculator
+# https://salary-calculator-five-zeta.vercel.app/robots.txt
+
+# Allow all crawlers
+User-agent: *
+Allow: /
+
+# Disallow API routes and admin pages
+Disallow: /api/
+Disallow: /admin/
+
+# Disallow auth pages (no need to index these)
+Disallow: /login
+Disallow: /register
+Disallow: /forgot-password
+Disallow: /reset-password
+Disallow: /verify-otp
+Disallow: /link-account
+
+# Crawl delay (be nice to the server)
+Crawl-delay: 1
+
+# Sitemap location
+Sitemap: https://salary-calculator-five-zeta.vercel.app/sitemap.xml

@@ -9,29 +9,67 @@ import { SystemThemeAdapter } from '@/components/system-theme-adapter'
 import { Toaster } from '@/components/ui/toaster'
 import { MobileNav } from '@/components/mobile-nav'
 import { LayoutWrapper } from '@/components/layout-wrapper'
+import { RegisterServiceWorker } from '@/components/register-sw'
+import { InstallPrompt } from '@/components/install-prompt'
+import { StructuredData } from '@/components/structured-data'
+import { siteConfig } from '@/lib/seo-config'
 
 export const metadata: Metadata = {
-  title: 'Time Tracker - Salary Calculator',
-  description: 'Track your work hours and calculate earnings in real-time',
+  metadataBase: new URL(siteConfig.url),
+  title: {
+    default: siteConfig.name,
+    template: `%s | ${siteConfig.name}`,
+  },
+  description: siteConfig.description,
+  keywords: siteConfig.keywords,
+  authors: [{ name: siteConfig.author }],
+  creator: siteConfig.author,
+  publisher: siteConfig.name,
+  formatDetection: {
+    telephone: false,
+  },
   manifest: '/manifest.json',
   appleWebApp: {
     capable: true,
     statusBarStyle: 'default',
-    title: 'TimeTracker',
-  },
-  formatDetection: {
-    telephone: false,
+    title: siteConfig.name,
   },
   openGraph: {
     type: 'website',
-    siteName: 'Time Tracker',
-    title: 'Time Tracker - Salary Calculator',
-    description: 'Track your work hours and calculate earnings in real-time',
+    locale: 'en_US',
+    url: siteConfig.url,
+    siteName: siteConfig.name,
+    title: siteConfig.name,
+    description: siteConfig.description,
+    images: [
+      {
+        url: siteConfig.ogImage,
+        width: 1200,
+        height: 630,
+        alt: siteConfig.name,
+      },
+    ],
   },
   twitter: {
-    card: 'summary',
-    title: 'Time Tracker',
-    description: 'Track your work hours and calculate earnings in real-time',
+    card: 'summary_large_image',
+    title: siteConfig.name,
+    description: siteConfig.description,
+    images: [siteConfig.ogImage],
+    creator: siteConfig.twitterHandle,
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      'max-video-preview': -1,
+      'max-image-preview': 'large',
+      'max-snippet': -1,
+    },
+  },
+  alternates: {
+    canonical: siteConfig.url,
   },
 }
 
@@ -54,8 +92,16 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
-        <link rel="icon" href="/favicon.ico" sizes="any" />
-        <link rel="apple-touch-icon" href="/icon-192.png" />
+        <link rel="icon" href="/logo.png" type="image/png" />
+        <link rel="apple-touch-icon" href="/logo.png" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+        <meta name="apple-mobile-web-app-title" content="Salary Calculator" />
+        <meta name="mobile-web-app-capable" content="yes" />
+        <meta httpEquiv="X-UA-Compatible" content="IE=edge" />
+        <meta name="language" content="English" />
+        <meta name="rating" content="General" />
+        <meta name="referrer" content="origin-when-cross-origin" />
       </head>
       <body className={`font-sans ${GeistSans.variable} ${GeistMono.variable}`}>
         <ThemeProvider 
@@ -71,8 +117,11 @@ export default function RootLayout({
             </LayoutWrapper>
           </AppShell>
           <MobileNav />
+          <InstallPrompt />
           <Toaster />
         </ThemeProvider>
+        <StructuredData />
+        <RegisterServiceWorker />
         <Analytics />
       </body>
     </html>

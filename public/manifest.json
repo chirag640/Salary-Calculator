@@ -1,24 +1,37 @@
 {
-  "name": "Time Tracker - Salary Calculator",
-  "short_name": "TimeTracker",
-  "description": "Track your work hours and calculate earnings in real-time",
+  "name": "Salary Calculator",
+  "short_name": "Salary Calc",
+  "description": "Track your work hours and calculate your salary in real-time",
   "start_url": "/",
+  "scope": "/",
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#3b82f6",
   "orientation": "portrait-primary",
   "icons": [
     {
-      "src": "/icon-192.png",
+      "src": "/logo.png",
       "sizes": "192x192",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
     },
     {
-      "src": "/icon-512.png",
+      "src": "/logo.png",
       "sizes": "512x512",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
+    },
+    {
+      "src": "/logo.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/logo.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
     }
   ],
   "categories": ["productivity", "business", "finance"],
@@ -27,29 +40,22 @@
       "name": "Start Timer",
       "short_name": "Start",
       "description": "Start tracking time immediately",
-      "url": "/?action=start-timer",
-      "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }]
+      "url": "/",
+      "icons": [{ "src": "/logo.png", "sizes": "192x192" }]
     },
     {
-      "name": "View Summary",
-      "short_name": "Summary",
-      "description": "View your work summary",
-      "url": "/#summary",
-      "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }]
-    }
-  ],
-  "screenshots": [
-    {
-      "src": "/screenshot-wide.png",
-      "sizes": "1280x720",
-      "type": "image/png",
-      "form_factor": "wide"
+      "name": "View History",
+      "short_name": "History",
+      "description": "View your work history",
+      "url": "/history",
+      "icons": [{ "src": "/logo.png", "sizes": "192x192" }]
     },
     {
-      "src": "/screenshot-narrow.png",
-      "sizes": "750x1334",
-      "type": "image/png",
-      "form_factor": "narrow"
+      "name": "Export Data",
+      "short_name": "Export",
+      "description": "Export your time entries",
+      "url": "/export",
+      "icons": [{ "src": "/logo.png", "sizes": "192x192" }]
     }
   ]
 }
