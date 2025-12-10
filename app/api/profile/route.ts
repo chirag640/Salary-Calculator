@@ -53,6 +53,7 @@ export async function GET(request: NextRequest) {
         allowReveal && typeof user.defaultHourlyRate === "number"
           ? user.defaultHourlyRate
           : undefined,
+      showEarnings: user.showEarnings ?? false, // Default to false for privacy
     };
     return NextResponse.json(resp);
   } catch (e) {

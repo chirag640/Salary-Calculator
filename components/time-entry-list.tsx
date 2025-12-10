@@ -7,8 +7,10 @@ import { Badge } from "@/components/ui/badge";
 import { formatTime, formatCurrency } from "@/lib/time-utils";
 import MaskedValue from "@/components/ui/masked-value";
 import type { TimeEntry } from "@/lib/types";
-import { Pencil, Trash2, Calendar, Clock } from "lucide-react";
+import { Pencil, Trash2, Calendar, Clock, FileText } from "lucide-react";
 import { TimerControls } from "@/components/timer-controls";
+import { useToast } from "@/hooks/use-toast";
+import { generateEntryPDF, downloadPDF, getWhatsAppShareLink } from "@/lib/pdf-generator";
 
 interface TimeEntryListProps {
   entries: TimeEntry[];
@@ -22,6 +24,7 @@ export function TimeEntryList({
   onDelete,
 }: TimeEntryListProps) {
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const { toast } = useToast();
 
   const handleDelete = async (id: string) => {
     if (!confirm("Are you sure you want to delete this time entry?")) {
@@ -37,6 +40,81 @@ export function TimeEntryList({
     } finally {
       setDeletingId(null);
     }
+  };
+
+  const handleGeneratePDF = async (entry: TimeEntry) => {
+    try {
+      // Get user name from profile or use default
+      const userName = "Chirag"; // You can fetch from profile API if needed
+      
+      const pdfBlob = generateEntryPDF(entry, userName);
+      const filename = `${entry.date}-chirag.pdf`;
+      
+      // Download PDF first
+      downloadPDF(pdfBlob, filename);
+      
+      toast({
+        title: "PDF Generated!",
+        description: `Downloaded ${filename}`,
+      });
+      
+      // Share via Web Share API if supported (works on mobile and modern browsers)
+      if (navigator.share && navigator.canShare) {
+        try {
+          // Create a File object from the blob
+          const pdfFile = new File([pdfBlob], filename, { type: "application/pdf" });
+          
+          const shareData = {
+            files: [pdfFile],
+            title: `Work Entry - ${entry.date}`,
+            text: `Work entry for ${entry.date}\n\nTime: ${entry.timeIn} - ${entry.timeOut}\nWork: ${entry.workDescription || "See attached PDF"}`,
+          };
+          
+          // Check if files can be shared
+          if (navigator.canShare(shareData)) {
+            await navigator.share(shareData);
+            toast({
+              title: "Shared Successfully!",
+              description: "PDF shared via WhatsApp or selected app",
+            });
+          } else {
+            // Fallback to text-only share
+            await navigator.share({
+              title: `Work Entry - ${entry.date}`,
+              text: `Work entry for ${entry.date}\n\nTime: ${entry.timeIn} - ${entry.timeOut}\nWork: ${entry.workDescription || "PDF downloaded to your device"}`,
+            });
+          }
+        } catch (shareError) {
+          if ((shareError as Error).name !== "AbortError") {
+            console.error("Share failed:", shareError);
+            // Fallback to WhatsApp link
+            openWhatsAppFallback(entry);
+          }
+        }
+      } else {
+        // Fallback for browsers that don't support Web Share API
+        openWhatsAppFallback(entry);
+      }
+    } catch (error) {
+      console.error("Error generating PDF:", error);
+      toast({
+        title: "PDF Generation Failed",
+        description: error instanceof Error ? error.message : "Could not generate PDF. Make sure jsPDF is installed.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const openWhatsAppFallback = (entry: TimeEntry) => {
+    const shareMessage = `Work entry for ${entry.date}\n\nTime: ${entry.timeIn} - ${entry.timeOut}\nWork: ${entry.workDescription || "PDF downloaded - please attach manually"}\n\n⚠️ Note: PDF was downloaded to your device. Please attach it manually in WhatsApp.`;
+    const whatsappLink = getWhatsAppShareLink(shareMessage);
+    window.open(whatsappLink, "_blank");
+    
+    toast({
+      title: "WhatsApp Opened",
+      description: "Please attach the downloaded PDF manually",
+      duration: 5000,
+    });
   };
 
   if (entries.length === 0) {
@@ -76,8 +154,8 @@ export function TimeEntryList({
 
         return (
           <div key={date}>
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4">
+                <h3 className="text-base md:text-lg font-semibold">
                 {new Date(date + "T00:00:00").toLocaleDateString("en-US", {
                   weekday: "long",
                   year: "numeric",
@@ -85,7 +163,7 @@ export function TimeEntryList({
                   day: "numeric",
                 })}
               </h3>
-              <div className="flex gap-4 text-sm">
+                <div className="flex flex-wrap gap-2 text-sm">
                 <Badge variant="secondary">{formatTime(totalHours)}</Badge>
                 <Badge
                   variant="outline"
@@ -109,16 +187,16 @@ export function TimeEntryList({
                         : ""
                     }`}
                   >
-                    <CardContent className="p-4">
-                      <div className="flex items-start justify-between">
+                    <CardContent className="p-3 md:p-4">
+                      <div className="flex flex-col sm:flex-row items-start justify-between gap-3">
                         <div className="flex-1">
-                          <div className="flex items-center gap-4 mb-2">
-                            <span className="font-medium">
+                            <div className="flex flex-wrap items-center gap-2 mb-2">
+                              <span className="font-medium text-sm md:text-base">
                               {entry.timeIn || "--:--"} -{" "}
                               {entry.timeOut || "--:--"}
                             </span>
                             {/* Break minutes no longer tracked; hourly rate shown for reference */}
-                            <Badge variant="secondary">
+                              <Badge variant="secondary" className="text-xs">
                               <MaskedValue
                                 value={entry.hourlyRate}
                                 format={(v) => `$${Number(v).toFixed(2)}/hr`}
@@ -154,7 +232,7 @@ export function TimeEntryList({
                             )}
                           </div>
 
-                          <div className="flex items-center gap-4 text-sm text-muted-foreground mb-2">
+                          <div className="flex flex-wrap items-center gap-2 md:gap-4 text-xs md:text-sm text-muted-foreground mb-2">
                             <span>{formatTime(entry.totalHours)}</span>
                             <span className="text-green-600 dark:text-green-400 font-medium">
                               <MaskedValue
@@ -172,21 +250,35 @@ export function TimeEntryList({
                           )}
                         </div>
 
-                        <div className="flex gap-2 ml-4">
+                        <div className="flex flex-wrap gap-2 mt-3 sm:mt-0 sm:ml-4 w-full sm:w-auto">
                           <Button
+                            onClick={() => handleGeneratePDF(entry)}
                             variant="outline"
                             size="sm"
-                            onClick={() => onEdit(entry)}
+                            className="flex-1 sm:flex-initial"
+                            title="Generate PDF & Share on WhatsApp"
                           >
-                            <Pencil className="h-4 w-4" />
+                            <FileText className="h-4 w-4 md:mr-2" />
+                            <span className="hidden md:inline">PDF</span>
                           </Button>
                           <Button
+                            onClick={() => onEdit(entry)}
                             variant="outline"
                             size="sm"
+                            className="flex-1 sm:flex-initial"
+                          >
+                            <Pencil className="h-4 w-4 md:mr-2" />
+                            <span className="hidden md:inline">Edit</span>
+                          </Button>
+                          <Button
                             onClick={() => handleDelete(entry._id!)}
+                            variant="outline"
+                            size="sm"
+                            className="flex-1 sm:flex-initial text-destructive hover:bg-destructive/10"
                             disabled={deletingId === entry._id}
                           >
-                            <Trash2 className="h-4 w-4" />
+                            <Trash2 className="h-4 w-4 md:mr-2" />
+                            <span className="hidden md:inline">Delete</span>
                           </Button>
                         </div>
                       </div>

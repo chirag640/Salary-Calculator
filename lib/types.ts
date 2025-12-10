@@ -96,6 +96,7 @@ export interface User {
   workingConfig?: WorkingConfig; // Current defaults for working hours etc. (used when creating new salary records)
   overtime?: OvertimeConfig;
   profileComplete?: boolean; // Whether user has completed initial profile setup (salary, PIN)
+  showEarnings?: boolean; // Whether to show earnings and monetary values in UI (default: false for privacy)
   createdAt?: Date;
   updatedAt?: Date;
 }
@@ -196,6 +197,7 @@ export interface ProfileResponse {
     salaryType: SalaryType;
   };
   defaultHourlyRate?: number;
+  showEarnings?: boolean;
 }
 
 export interface UpdateProfileRequest {

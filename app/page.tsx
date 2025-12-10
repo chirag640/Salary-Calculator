@@ -516,6 +516,15 @@ export default function TimeTracker() {
   const totalEntries = entries.length;
 
   const [showManualEntry, setShowManualEntry] = useState(false);
+  
+  // Timer/Manual toggle with localStorage persistence
+  const [showTimerHero, setShowTimerHero] = useState(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("showTimerHero");
+      return saved !== "false"; // Default to true (show timer)
+    }
+    return true;
+  });
 
   const handleLogout = async () => {
     try {
@@ -546,9 +555,9 @@ export default function TimeTracker() {
   return (
     <MotionProvider>
       <Motion>
-        <div className="container mx-auto p-4 md:p-6 max-w-7xl space-y-8">
+        <div className="container mx-auto p-3 md:p-6 max-w-7xl space-y-4 md:space-y-8">
           {/* Hero Timer Section */}
-          {isToday && (
+          {isToday && showTimerHero && (
             <div className="max-w-3xl mx-auto">
               <TimerHero
                 selectedDate={selectedDateString}
@@ -581,8 +590,8 @@ export default function TimeTracker() {
           />
 
           {/* Date Navigation & Manual Entry */}
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+            <div className="flex flex-wrap items-center gap-2">
               <DatePicker date={selectedDate} onDateChange={setSelectedDate} />
               {!isToday && (
                 <Button
@@ -595,20 +604,46 @@ export default function TimeTracker() {
               )}
             </div>
 
-            {!todayEntries.some((e) => e.timer?.isRunning) && (
-              <Button
-                onClick={() => setShowManualEntry(!showManualEntry)}
-                variant={showManualEntry ? "default" : "outline"}
-                size="sm"
-              >
-                <Plus className="mr-2 h-4 w-4" />
-                {showManualEntry ? "Hide Form" : "Manual Entry"}
-              </Button>
-            )}
+            <div className="flex flex-wrap items-center gap-2">
+              {/* Timer/Manual Toggle */}
+              {isToday && (
+                <Button
+                  onClick={() => {
+                    const newValue = !showTimerHero;
+                    setShowTimerHero(newValue);
+                    localStorage.setItem("showTimerHero", String(newValue));
+                    if (!newValue) {
+                      setShowManualEntry(true); // Auto-open manual entry when hiding timer
+                    }
+                    toast({
+                      title: newValue ? "Timer view" : "Manual entry view",
+                      description: newValue
+                        ? "Timer is now visible"
+                        : "Manual entry form is now visible",
+                    });
+                  }}
+                  variant={showTimerHero ? "outline" : "default"}
+                  size="sm"
+                >
+                  {showTimerHero ? "Manual Entry" : "Show Timer"}
+                </Button>
+              )}
+
+              {!todayEntries.some((e) => e.timer?.isRunning) && showTimerHero && (
+                <Button
+                  onClick={() => setShowManualEntry(!showManualEntry)}
+                  variant={showManualEntry ? "default" : "outline"}
+                  size="sm"
+                >
+                  <Plus className="mr-2 h-4 w-4" />
+                  {showManualEntry ? "Hide Form" : "Add Entry"}
+                </Button>
+              )}
+            </div>
           </div>
 
           {/* Manual Entry Form */}
-          {showManualEntry && !todayEntries.some((e) => e.timer?.isRunning) && (
+          {(showManualEntry || !showTimerHero) && !todayEntries.some((e) => e.timer?.isRunning) && (
             <div className="animate-in fade-in slide-in-from-top-4 duration-300">
               <Card>
                 <CardHeader>

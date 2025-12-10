@@ -3,9 +3,11 @@
 import { useState, useEffect, useCallback } from "react";
 import { TimeEntryList } from "@/components/time-entry-list";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import type { TimeEntry } from "@/lib/types";
-import { Clock, TrendingUp, DollarSign, Calendar } from "lucide-react";
+import { Clock, TrendingUp, DollarSign, Calendar, Eye, EyeOff } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/hooks/use-toast";
 import { ToastAction } from "@/components/ui/toast";
@@ -18,9 +20,13 @@ export default function HistoryPage() {
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
+  const [showEarnings, setShowEarnings] = useState(false);
+  const [showPinDialog, setShowPinDialog] = useState(false);
+  const [pin, setPin] = useState("");
+  const [pinError, setPinError] = useState("");
   const router = useRouter();
   const { toast } = useToast();
-  const { csrfToken, ensureCsrfToken } = useCsrfToken();
+  const { csrfToken, ensureCsrfToken} = useCsrfToken();
 
   const ITEMS_PER_PAGE = 30;
 
@@ -56,6 +62,24 @@ export default function HistoryPage() {
       setLoading(false);
     }
   };
+
+  // Load earnings visibility setting
+  useEffect(() => {
+    const loadEarningsVisibility = async () => {
+      try {
+        const response = await fetch("/api/profile/earnings-visibility", {
+          credentials: "same-origin",
+        });
+        if (response.ok) {
+          const data = await response.json();
+          setShowEarnings(data.showEarnings ?? false);
+        }
+      } catch (error) {
+        console.error("Failed to load earnings visibility:", error);
+      }
+    };
+    loadEarningsVisibility();
+  }, []);
 
   // Load entries on mount and page change
   useEffect(() => {
@@ -111,6 +135,66 @@ export default function HistoryPage() {
     router.push(`/?date=${entry.date}`);
   };
 
+  const handlePinSubmit = async () => {
+    if (pin.length !== 4) {
+      setPinError("PIN must be 4 digits");
+      return;
+    }
+
+    try {
+      const response = await fetch("/api/auth/pin/verify", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "same-origin",
+        body: JSON.stringify({ pin }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok && data.success) {
+        // PIN verified - now enable earnings visibility
+        setShowPinDialog(false);
+        setPin("");
+        setPinError("");
+
+        try {
+          const token = csrfToken || (await ensureCsrfToken());
+          const earningsResponse = await fetch("/api/profile/earnings-visibility", {
+            method: "PUT",
+            headers: {
+              "Content-Type": "application/json",
+              ...(token ? { "x-csrf-token": token } : {}),
+            },
+            credentials: "same-origin",
+            body: JSON.stringify({ showEarnings: true }),
+          });
+
+          if (earningsResponse.ok) {
+            setShowEarnings(true);
+            toast({
+              title: "Earnings visible",
+              description: "PIN verified. Monetary values are now visible",
+            });
+          }
+        } catch (error) {
+          toast({
+            title: "Failed to update earnings visibility",
+            variant: "destructive",
+          });
+        }
+      } else {
+        // Wrong PIN
+        setPinError(data.message || "Incorrect PIN. Please try again.");
+        setPin("");
+      }
+    } catch (error) {
+      console.error("PIN verification error:", error);
+      setPinError("Failed to verify PIN. Please try again.");
+    }
+  };
+
   if (loading) {
     return (
       <div className="container mx-auto p-6">
@@ -126,10 +210,121 @@ export default function HistoryPage() {
 
   return (
     <div className="container mx-auto max-w-6xl p-4 space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold mb-2">History</h1>
-        <p className="text-muted-foreground">Your time tracking records</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold mb-2">History</h1>
+          <p className="text-muted-foreground">Your time tracking records</p>
+        </div>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={async () => {
+            if (showEarnings) {
+              // Hiding earnings - no PIN needed
+              try {
+                const token = csrfToken || (await ensureCsrfToken());
+                const response = await fetch("/api/profile/earnings-visibility", {
+                  method: "PUT",
+                  headers: {
+                    "Content-Type": "application/json",
+                    ...(token ? { "x-csrf-token": token } : {}),
+                  },
+                  credentials: "same-origin",
+                  body: JSON.stringify({ showEarnings: false }),
+                });
+                if (response.ok) {
+                  setShowEarnings(false);
+                  toast({
+                    title: "Earnings hidden",
+                    description: "Monetary values are now hidden",
+                  });
+                }
+              } catch (error) {
+                toast({
+                  title: "Failed to update",
+                  variant: "destructive",
+                });
+              }
+            } else {
+              // Showing earnings - require PIN
+              setShowPinDialog(true);
+            }
+          }}
+        >
+          {showEarnings ? (
+            <>
+              <EyeOff className="h-4 w-4 mr-2" />
+              Hide Earnings
+            </>
+          ) : (
+            <>
+              <Eye className="h-4 w-4 mr-2" />
+              Show Earnings
+            </>
+          )}
+        </Button>
       </div>
+
+      {/* PIN Verification Dialog */}
+      {showPinDialog && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <Card className="w-full max-w-md mx-4">
+            <CardHeader>
+              <CardTitle>Enter PIN to Show Earnings</CardTitle>
+              <p className="text-sm text-muted-foreground">
+                For security, please enter your 4-digit PIN
+              </p>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <Label htmlFor="pin-input">PIN</Label>
+                <Input
+                  id="pin-input"
+                  type="password"
+                  inputMode="numeric"
+                  maxLength={4}
+                  value={pin}
+                  onChange={(e) => {
+                    setPin(e.target.value.replace(/\D/g, ""));
+                    setPinError("");
+                  }}
+                  placeholder="Enter 4-digit PIN"
+                  className="text-2xl text-center tracking-widest"
+                  autoFocus
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && pin.length === 4) {
+                      handlePinSubmit();
+                    }
+                  }}
+                />
+                {pinError && (
+                  <p className="text-sm text-destructive mt-2">{pinError}</p>
+                )}
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  className="flex-1"
+                  onClick={() => {
+                    setShowPinDialog(false);
+                    setPin("");
+                    setPinError("");
+                  }}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  className="flex-1"
+                  onClick={handlePinSubmit}
+                  disabled={pin.length !== 4}
+                >
+                  Verify PIN
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
       {/* Quick Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -141,7 +336,15 @@ export default function HistoryPage() {
             </div>
             <div className="text-2xl font-bold">{weekHours.toFixed(1)}h</div>
             <div className="text-xs text-muted-foreground">
-              ${weekEarnings.toFixed(0)}
+              {showEarnings ? (
+                `$${weekEarnings.toFixed(0)}`
+              ) : (
+                <MaskedValue
+                  value={weekEarnings}
+                  format={(v) => `$${Number(v).toFixed(0)}`}
+                  ariaLabel="Week earnings hidden"
+                />
+              )}
             </div>
           </CardContent>
         </Card>
@@ -168,7 +371,15 @@ export default function HistoryPage() {
               </span>
             </div>
             <div className="text-2xl font-bold">
-              ${totalEarnings.toFixed(0)}
+              {showEarnings ? (
+                `$${totalEarnings.toFixed(0)}`
+              ) : (
+                <MaskedValue
+                  value={totalEarnings}
+                  format={(v) => `$${Number(v).toFixed(0)}`}
+                  ariaLabel="Total earnings hidden"
+                />
+              )}
             </div>
             <div className="text-xs text-muted-foreground">All time</div>
           </CardContent>

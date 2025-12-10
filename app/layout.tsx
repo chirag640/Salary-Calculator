@@ -8,6 +8,7 @@ import { ThemeProvider } from '@/components/theme-provider'
 import { SystemThemeAdapter } from '@/components/system-theme-adapter'
 import { Toaster } from '@/components/ui/toaster'
 import { MobileNav } from '@/components/mobile-nav'
+import { LayoutWrapper } from '@/components/layout-wrapper'
 
 export const metadata: Metadata = {
   title: 'Time Tracker - Salary Calculator',
@@ -65,9 +66,9 @@ export default function RootLayout({
         >
           <SystemThemeAdapter />
           <AppShell>
-            <div className="pb-20 md:pb-0">
+            <LayoutWrapper>
               {children}
-            </div>
+            </LayoutWrapper>
           </AppShell>
           <MobileNav />
           <Toaster />

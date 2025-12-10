@@ -82,22 +82,16 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "No entries found for the specified criteria" }, { status: 404 })
     }
 
-    // Prepare data for export
-    const exportRows = entries.map((entry) => ({
+    // Prepare data for export (REMOVED: Break Minutes, Hourly Rate, Total Earnings, Client, Project for privacy)
+    const exportRows = entries.map((entry) =>({
       Date: entry.date,
       "Time In": entry.timeIn || "N/A",
       "Time Out": entry.timeOut || "N/A",
-      "Break Minutes": entry.breakMinutes,
-      "Total Hours": entry.totalHours,
-      "Hourly Rate": entry.hourlyRate,
-      "Total Earnings": entry.totalEarnings,
-      Client: entry.client || "",
-      Project: entry.project || "",
       "Work Description": entry.workDescription || "",
       "Is Leave": entry.leave?.isLeave ? "Yes" : "No",
       "Leave Type": entry.leave?.leaveType || "",
       "Leave Reason": entry.leave?.leaveReason || "",
-      "Holiday Work": entry.isHolidayWork ? "Yes" : "No",
+      "Holiday Work": entry.isHolidayWork ? "Yes" : "",
       "Holiday Category": entry.isHolidayWork ? (entry.holidayCategory || "") : "",
     }))
 
@@ -134,7 +128,7 @@ export async function POST(request: NextRequest) {
         },
       })
     } else {
-      // Generate XLSX
+      // Generate XLSX with color coding
       const worksheet = XLSX.utils.json_to_sheet(exportRows)
       const workbook = XLSX.utils.book_new()
       XLSX.utils.book_append_sheet(workbook, worksheet, "Time Entries")
@@ -144,6 +138,38 @@ export async function POST(request: NextRequest) {
         wch: Math.max(key.length, 15),
       }))
       worksheet["!cols"] = colWidths
+
+      // Apply color coding to rows (starting from row 2, after header)
+      entries.forEach((entry, index) => {
+        const rowNum = index + 2; // +2 because Excel is 1-indexed and row 1 is header
+        const dateObj = new Date(entry.date + "T00:00:00");
+        const dayOfWeek = dateObj.getDay(); // 0 = Sunday, 6 = Saturday
+        
+        let fillColor = null;
+        
+        // Priority: Leave > Holiday > Weekend
+        if (entry.leave?.isLeave) {
+          fillColor = "FFF9C4"; // Light yellow for leaves
+        } else if (entry.isHolidayWork) {
+          fillColor = "B3E5FC"; // Light blue for holidays
+        } else if (dayOfWeek === 0) {
+          fillColor = "FFE0B2"; // Light orange for Sundays
+        } else if (dayOfWeek === 6) {
+          fillColor = "C8E6C9"; // Light green for Saturdays
+        }
+
+        // Apply fill color to all cells in the row
+        if (fillColor) {
+          Object.keys(exportRows[0]).forEach((_, colIndex) => {
+            const cellAddress = XLSX.utils.encode_cell({ r: rowNum - 1, c: colIndex });
+            if (!worksheet[cellAddress]) worksheet[cellAddress] = { v: "" };
+            worksheet[cellAddress].s = {
+              fill: { fgColor: { rgb: fillColor } },
+              alignment: { vertical: "center", horizontal: "left" },
+            };
+          });
+        }
+      });
 
       const xlsxBuffer = XLSX.write(workbook, { type: "buffer", bookType: "xlsx" })
 

@@ -257,8 +257,8 @@ export function TimeEntryForm({
   return (
     <div className="space-y-4">
       <Card className="hover:translate-y-[-1px] transition-transform">
-        <CardHeader>
-          <CardTitle className="text-2xl">
+        <CardHeader className="p-4 md:p-6">
+          <CardTitle className="text-lg md:text-2xl">
             {isEditing ? "✏️ Edit Entry" : "📝 Manual Log Entry"}
           </CardTitle>
           {!isEditing && (
@@ -268,11 +268,11 @@ export function TimeEntryForm({
             </p>
           )}
         </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-6">
+        <CardContent className="p-4 md:p-6">
+          <form onSubmit={handleSubmit} className="space-y-4 md:space-y-6">
             {/* Entry Type Selection */}
-            <div className="bg-muted/50 p-4 rounded-lg space-y-3">
-              <h3 className="font-semibold text-sm">Entry Type</h3>
+            <div className="bg-muted/50 p-3 md:p-4 rounded-lg space-y-2 md:space-y-3">
+              <h3 className="font-semibold text-xs md:text-sm">Entry Type</h3>
               <div className="flex flex-col gap-3">
                 <div className="flex items-center space-x-2">
                   <Checkbox
@@ -404,10 +404,10 @@ export function TimeEntryForm({
                 {/* Time Entry Fields */}
                 {!isHolidayWork && (
                   <div>
-                    <Label className="text-base mb-2 block">
+                    <Label className="text-sm md:text-base mb-2 block">
                       ⏰ Work Hours
                     </Label>
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4">
                       <div>
                         <Label
                           htmlFor="timeIn"
@@ -421,7 +421,7 @@ export function TimeEntryForm({
                           value={timeIn}
                           onChange={(e) => setTimeIn(e.target.value)}
                           required={timesRequired}
-                          className="h-12 text-lg"
+                          className="h-10 md:h-12 text-base md:text-lg"
                         />
                       </div>
                       <div>
@@ -446,10 +446,10 @@ export function TimeEntryForm({
 
                 {isHolidayWork && isHolidayExtra && (
                   <div>
-                    <Label className="text-base mb-2 block">
+                    <Label className="text-sm md:text-base mb-2 block">
                       ⏰ Extra Hours (beyond base 9h)
                     </Label>
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4">
                       <div>
                         <Label
                           htmlFor="holidayTimeIn"
@@ -504,26 +504,26 @@ export function TimeEntryForm({
                 </div>
 
                 {/* Live calculation display (always shown so user can verify values for past dates) */}
-                <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/30 dark:to-indigo-950/30 p-6 rounded-lg border-2 border-blue-200 dark:border-blue-800">
-                  <h3 className="text-sm font-semibold text-muted-foreground mb-3">
+                <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/30 dark:to-indigo-950/30 p-4 md:p-6 rounded-lg border-2 border-blue-200 dark:border-blue-800">
+                  <h3 className="text-xs md:text-sm font-semibold text-muted-foreground mb-2 md:mb-3">
                     Summary
                   </h3>
-                  <div className="grid grid-cols-2 gap-6">
+                  <div className="grid grid-cols-2 gap-3 md:gap-6">
                     <div>
-                      <div className="text-sm text-muted-foreground mb-1">
+                      <div className="text-xs md:text-sm text-muted-foreground mb-1">
                         Total Hours
                       </div>
-                      <div className="text-3xl font-bold text-blue-600 dark:text-blue-400">
+                      <div className="text-xl md:text-3xl font-bold text-blue-600 dark:text-blue-400">
                         {calculation.totalHours.toFixed
                           ? calculation.totalHours.toFixed(2)
                           : calculation.totalHours}
                       </div>
                     </div>
                     <div>
-                      <div className="text-sm text-muted-foreground mb-1">
+                      <div className="text-xs md:text-sm text-muted-foreground mb-1">
                         Estimated Earnings
                       </div>
-                      <div className="text-3xl font-bold text-green-600 dark:text-green-300">
+                      <div className="text-xl md:text-3xl font-bold text-green-600 dark:text-green-300">
                         <MaskedValue
                           value={calculation.totalEarnings}
                           format={(v) => `$${Number(v).toFixed(2)}`}
@@ -544,7 +544,7 @@ export function TimeEntryForm({
             <Button
               type="submit"
               disabled={isSubmitting}
-              className="w-full h-12 text-lg"
+              className="w-full h-10 md:h-12 text-base md:text-lg"
               variant="glass"
             >
               {isSubmitting
