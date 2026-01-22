@@ -11,6 +11,7 @@ import { verifyOAuthState } from "@/lib/validation/auth";
 import { encrypt } from "@/lib/encryption";
 import { ObjectId } from "mongodb";
 import { updateIntegrationTokens, getIntegration } from "@/lib/integrations/db";
+import { logger } from "@/lib/logger";
 
 export async function GET(request: NextRequest) {
   try {
@@ -74,7 +75,7 @@ export async function GET(request: NextRequest) {
                   isVerified: true, // Mark as verified since Google verified the email
                   updatedAt: new Date(),
                 },
-              }
+              },
             );
 
             // Store OAuth integration (used for auth token refresh and account linking)
@@ -106,7 +107,7 @@ export async function GET(request: NextRequest) {
                   createdAt: new Date(),
                 },
               },
-              { upsert: true }
+              { upsert: true },
             );
 
             // Redirect with success message after linking
@@ -115,8 +116,8 @@ export async function GET(request: NextRequest) {
             // Session belongs to a different user. This is a safety check to prevent
             // accidentally linking a Google account to the wrong user account.
             // Solution: Send user to link-account page with proper context
-            console.warn(
-              "OAuth callback: session user does not match account found by email; redirecting to link-account page."
+            logger.warn(
+              "OAuth callback: session user does not match account found by email; redirecting to link-account page.",
             );
 
             const linkToken = Buffer.from(
@@ -126,13 +127,13 @@ export async function GET(request: NextRequest) {
                 name: profile.name,
                 timestamp: Date.now(),
                 existingUserId: user._id.toString(),
-              })
+              }),
             ).toString("base64");
 
             return NextResponse.redirect(
               `${baseUrl}/link-account?token=${encodeURIComponent(
-                linkToken
-              )}&returnTo=${encodeURIComponent(returnTo)}&error=different_user`
+                linkToken,
+              )}&returnTo=${encodeURIComponent(returnTo)}&error=different_user`,
             );
           }
         } else {
@@ -144,13 +145,13 @@ export async function GET(request: NextRequest) {
               googleId: profile.id,
               name: profile.name,
               timestamp: Date.now(),
-            })
+            }),
           ).toString("base64");
 
           return NextResponse.redirect(
             `${baseUrl}/link-account?token=${encodeURIComponent(
-              linkToken
-            )}&returnTo=${encodeURIComponent(returnTo)}`
+              linkToken,
+            )}&returnTo=${encodeURIComponent(returnTo)}`,
           );
         }
       } else {
@@ -219,12 +220,12 @@ export async function GET(request: NextRequest) {
             updatedAt: new Date(),
           },
         },
-        { upsert: true }
+        { upsert: true },
       );
     }
 
     if (!user) {
-      console.error("Google auth: user still missing after create");
+      logger.error("Google auth: user still missing after create");
       return NextResponse.redirect(`${baseUrl}/login?error=oauth_user_missing`);
     }
 
@@ -243,7 +244,7 @@ export async function GET(request: NextRequest) {
 
     // Check if user needs onboarding (new user or incomplete profile)
     const needsOnboarding = user.profileComplete === false || !user.pinHash;
-    const redirectUrl = needsOnboarding 
+    const redirectUrl = needsOnboarding
       ? `${baseUrl}/profile?onboarding=true`
       : `${baseUrl}${returnTo}`;
 
@@ -258,7 +259,10 @@ export async function GET(request: NextRequest) {
 
     return response;
   } catch (err) {
-    console.error("Google auth callback error:", err);
+    logger.error(
+      "Google auth callback error",
+      err instanceof Error ? err : { error: err },
+    );
     const baseUrl =
       process.env.NEXT_PUBLIC_APP_URL ||
       process.env.APP_URL ||

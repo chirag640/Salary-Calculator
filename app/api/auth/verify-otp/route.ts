@@ -11,6 +11,7 @@ import {
 import { sanitizeEmail } from "@/lib/validation/auth";
 import { rateLimit, buildRateLimitKey } from "@/lib/rate-limit";
 import { handleCors, handleOptions } from "@/lib/cors";
+import { logger } from "@/lib/logger";
 
 export async function OPTIONS() {
   return handleOptions();
@@ -25,7 +26,7 @@ export async function POST(request: NextRequest) {
     if (!email || !otp) {
       return NextResponse.json(
         { error: "Email and OTP are required" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -35,7 +36,7 @@ export async function POST(request: NextRequest) {
     if (!isValidOTPFormat(otp)) {
       return NextResponse.json(
         { error: "Invalid OTP format" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -56,7 +57,7 @@ export async function POST(request: NextRequest) {
           error: "Too many verification attempts. Please try again later.",
           retryAfter: rateLimitResult.retryAfter,
         },
-        { status: 429 }
+        { status: 429 },
       );
     }
 
@@ -72,7 +73,7 @@ export async function POST(request: NextRequest) {
     if (!otpRecord) {
       return NextResponse.json(
         { error: "Invalid or expired verification code" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -81,7 +82,7 @@ export async function POST(request: NextRequest) {
       await db.collection("auth_otps").deleteOne({ _id: otpRecord._id });
       return NextResponse.json(
         { error: "Verification code has expired. Please request a new one." },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -93,7 +94,7 @@ export async function POST(request: NextRequest) {
           error:
             "Too many failed attempts. Please request a new verification code.",
         },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -101,11 +102,10 @@ export async function POST(request: NextRequest) {
     const isValid = await verifyOTP(otp, otpRecord.otpHash);
 
     if (!isValid) {
-      console.log(
-        `❌ Invalid OTP for ${sanitizedEmail}: Got ${otp}, Attempts: ${
-          otpRecord.attempts + 1
-        }`
-      );
+      logger.debug("Invalid OTP attempt", {
+        email: sanitizedEmail,
+        attempts: otpRecord.attempts + 1,
+      });
       // Increment attempts
       await db
         .collection("auth_otps")
@@ -118,11 +118,11 @@ export async function POST(request: NextRequest) {
           error: "Invalid verification code",
           remainingAttempts: Math.max(0, remainingAttempts),
         },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
-    console.log(`✅ Valid OTP for ${sanitizedEmail}, creating user...`);
+    logger.info("Valid OTP, creating user", { email: sanitizedEmail });
 
     // OTP is valid - create user
     const { name, hashedPassword } = otpRecord.metadata;
@@ -142,7 +142,7 @@ export async function POST(request: NextRequest) {
       .collection("auth_otps")
       .updateOne(
         { _id: otpRecord._id },
-        { $set: { used: true, usedAt: new Date() } }
+        { $set: { used: true, usedAt: new Date() } },
       );
 
     // Generate JWT token
@@ -183,10 +183,13 @@ export async function POST(request: NextRequest) {
 
     return handleCors(response);
   } catch (error) {
-    console.error("OTP verification error:", error);
+    logger.error(
+      "OTP verification error",
+      error instanceof Error ? error : { error },
+    );
     const errorResponse = NextResponse.json(
       { error: "Internal server error" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

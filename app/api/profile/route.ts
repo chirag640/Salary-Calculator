@@ -6,6 +6,7 @@ import type { UpdateProfileRequest, ProfileResponse } from "@/lib/types";
 import { expandPaymentConfig, compactPaymentConfig } from "@/lib/types";
 import { safeDecrypt, encryptNumber } from "@/lib/encryption";
 import { decryptSalaryRecords } from "@/lib/db-encryption-middleware";
+import { logger } from "@/lib/logger";
 
 export const runtime = "nodejs";
 
@@ -90,7 +91,10 @@ export async function GET(request: NextRequest) {
     };
     return NextResponse.json(resp);
   } catch (e) {
-    console.error("GET /api/profile error", e);
+    logger.error(
+      "GET /api/profile error",
+      e instanceof Error ? e : { error: e },
+    );
     return NextResponse.json(
       { error: "Failed to fetch profile" },
       { status: 500 },
@@ -176,7 +180,10 @@ export async function PUT(request: NextRequest) {
 
     return response;
   } catch (e) {
-    console.error("PUT /api/profile error", e);
+    logger.error(
+      "PUT /api/profile error",
+      e instanceof Error ? e : { error: e },
+    );
     return NextResponse.json(
       { error: "Failed to update profile" },
       { status: 500 },

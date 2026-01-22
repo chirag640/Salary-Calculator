@@ -2,6 +2,7 @@ import { type NextRequest, NextResponse } from "next/server";
 import { connectToDatabase } from "@/lib/mongodb";
 import { verifyToken } from "@/lib/auth";
 import { ObjectId } from "mongodb";
+import { logger } from "@/lib/logger";
 
 export const runtime = "nodejs";
 
@@ -37,7 +38,7 @@ export async function POST(request: NextRequest) {
           profileComplete: true,
           updatedAt: new Date(),
         },
-      }
+      },
     );
 
     if (result.matchedCount === 0) {
@@ -52,7 +53,7 @@ export async function POST(request: NextRequest) {
     if (!updatedUser) {
       return NextResponse.json(
         { error: "User not found after update" },
-        { status: 404 }
+        { status: 404 },
       );
     }
 
@@ -89,10 +90,13 @@ export async function POST(request: NextRequest) {
 
     return response;
   } catch (error) {
-    console.error("Complete onboarding error:", error);
+    logger.error(
+      "Complete onboarding error",
+      error instanceof Error ? error : { error },
+    );
     return NextResponse.json(
       { error: "Failed to complete onboarding" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

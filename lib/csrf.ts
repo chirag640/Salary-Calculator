@@ -4,8 +4,9 @@
 
 import { randomBytes } from "crypto";
 
+// Generate 256-bit (32 bytes) CSRF token per security best practices
 export function generateCsrfToken(): string {
-  return randomBytes(16).toString("hex");
+  return randomBytes(32).toString("hex");
 }
 
 /**

@@ -2,6 +2,7 @@ import { type NextRequest, NextResponse } from "next/server";
 import { connectToDatabase } from "@/lib/mongodb";
 import { verifyToken, comparePin, generateRevealToken } from "@/lib/auth";
 import { rateLimit, buildRateLimitKey } from "@/lib/rate-limit";
+import { logger } from "@/lib/logger";
 
 export const runtime = "nodejs";
 
@@ -38,7 +39,7 @@ export async function POST(request: NextRequest) {
     if (!rl.ok) {
       return NextResponse.json(
         { message: "Too many attempts, try later", retryAfter: rl.retryAfter },
-        { status: 429 }
+        { status: 429 },
       );
     }
 
@@ -86,10 +87,13 @@ export async function POST(request: NextRequest) {
     });
     return res;
   } catch (e) {
-    console.error("POST /api/auth/pin/verify error", e);
+    logger.error(
+      "POST /api/auth/pin/verify error",
+      e instanceof Error ? e : { error: e },
+    );
     return NextResponse.json(
       { message: "Internal server error" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

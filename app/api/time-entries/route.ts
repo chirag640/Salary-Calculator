@@ -12,6 +12,7 @@ import {
 import { createTimeEntrySchema } from "@/lib/validation/schemas";
 import { rateLimit, buildRateLimitKey } from "@/lib/rate-limit";
 import { validateCsrf } from "@/lib/csrf";
+import { logger } from "@/lib/logger";
 
 function deriveHolidayCategory(date: string): "sunday" | "saturday" | "other" {
   try {
@@ -66,7 +67,7 @@ export async function GET(request: NextRequest) {
         } catch {
           return NextResponse.json(
             { error: "Invalid cursor" },
-            { status: 400 }
+            { status: 400 },
           );
         }
       }
@@ -92,10 +93,13 @@ export async function GET(request: NextRequest) {
       pageSize: entries.length,
     });
   } catch (error) {
-    console.error("Error fetching time entries:", error);
+    logger.error(
+      "Error fetching time entries",
+      error instanceof Error ? error : { error },
+    );
     return NextResponse.json(
       { error: "Failed to fetch time entries" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
@@ -117,7 +121,7 @@ export async function POST(request: NextRequest) {
     if (!rl.ok) {
       return NextResponse.json(
         { error: "Rate limit exceeded" },
-        { status: 429, headers: { "Retry-After": String(rl.retryAfter) } }
+        { status: 429, headers: { "Retry-After": String(rl.retryAfter) } },
       );
     }
 
@@ -149,7 +153,7 @@ export async function POST(request: NextRequest) {
           error: "Invalid CSRF token",
           details: { headerPresent, cookiePresent },
         },
-        { status: 403 }
+        { status: 403 },
       );
     }
 
@@ -157,15 +161,17 @@ export async function POST(request: NextRequest) {
     try {
       raw = await request.json();
     } catch (e) {
-      console.error("Failed to parse JSON body for time entry create");
+      logger.warn("Failed to parse JSON body for time entry create");
       return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
     }
     const parse = createTimeEntrySchema.safeParse(raw);
     if (!parse.success) {
-      console.warn("Time entry validation failed:", parse.error.format());
+      logger.warn("Time entry validation failed", {
+        issues: parse.error.format(),
+      });
       return NextResponse.json(
         { error: "Validation failed", issues: parse.error.format() },
-        { status: 400 }
+        { status: 400 },
       );
     }
     const {
@@ -197,14 +203,11 @@ export async function POST(request: NextRequest) {
         ],
       });
       if (overlap) {
-        console.warn(
-          "Overlapping entry detected for user",
+        logger.warn("Overlapping entry detected", {
           userId,
-          "date",
           date,
-          "overlapId",
-          overlap._id
-        );
+          overlapId: overlap._id?.toString(),
+        });
         // Return a minimal subset of the overlapping entry so the client can show helpful context
         const overlapInfo = {
           _id: overlap._id?.toString?.() || overlap._id,
@@ -216,7 +219,7 @@ export async function POST(request: NextRequest) {
         };
         return NextResponse.json(
           { error: "Overlapping time entry exists", overlap: overlapInfo },
-          { status: 409 }
+          { status: 409 },
         );
       }
     }
@@ -233,7 +236,7 @@ export async function POST(request: NextRequest) {
           const extra =
             Math.round(
               calculateTimeWorked(timeIn, timeOut, breakMinutes, hourlyRate)
-                .totalHours * 100
+                .totalHours * 100,
             ) / 100;
           totalHours = Math.round((baseHolidayHours + extra) * 100) / 100;
         } else {
@@ -247,7 +250,7 @@ export async function POST(request: NextRequest) {
             timeIn,
             timeOut,
             breakMinutes,
-            hourlyRate
+            hourlyRate,
           ).totalHours;
         } else if (typeof providedHours === "number" && providedHours > 0) {
           totalHours = Math.round(providedHours * 100) / 100;
@@ -255,7 +258,7 @@ export async function POST(request: NextRequest) {
         totalEarnings = computeEarningsWithOvertime(
           totalHours,
           hourlyRate,
-          eff.overtime
+          eff.overtime,
         );
       }
     }
@@ -264,8 +267,8 @@ export async function POST(request: NextRequest) {
     const effectiveLeave = isHolidayWork
       ? undefined
       : leave
-      ? ({ ...leave } as any)
-      : undefined;
+        ? ({ ...leave } as any)
+        : undefined;
 
     const doc: TimeEntry = {
       userId,
@@ -294,14 +297,17 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ ...doc, _id: result.insertedId.toString() });
   } catch (error: any) {
-    console.error("Error creating time entry:", error);
+    logger.error(
+      "Error creating time entry",
+      error instanceof Error ? error : { error },
+    );
     const msg =
       error && (error.message || String(error))
         ? error.message || String(error)
         : "Unknown error";
     return NextResponse.json(
       { error: "Failed to create time entry", detail: msg },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

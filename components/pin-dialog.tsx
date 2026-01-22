@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useRef, useState, useCallback } from "react";
+import { createPortal } from "react-dom";
 import { cn } from "@/lib/utils";
 
 export interface PinDialogProps {
@@ -46,7 +47,13 @@ export default function PinDialog({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [attemptsLeft, setAttemptsLeft] = useState<number | null>(null);
+  const [mounted, setMounted] = useState(false);
   const inputRef = useRef<HTMLInputElement | null>(null);
+
+  // Ensure component is mounted (for SSR compatibility)
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // Reset state when dialog opens
   useEffect(() => {
@@ -125,9 +132,9 @@ export default function PinDialog({
     [pin, minLength, onSuccess, onClose],
   );
 
-  if (!open) return null;
+  if (!open || !mounted) return null;
 
-  return (
+  const dialogContent = (
     <div
       role="dialog"
       aria-modal="true"
@@ -135,35 +142,39 @@ export default function PinDialog({
       aria-describedby="pin-dialog-description"
       className={cn(
         "fixed inset-0 z-[9999]",
-        "flex items-center justify-center p-4",
-        "bg-black/60 backdrop-blur-sm",
-        "animate-in fade-in duration-150",
+        "flex items-center justify-center",
+        "p-4 sm:p-6",
+        "bg-black/70 backdrop-blur-md",
+        "animate-in fade-in duration-200",
       )}
       onMouseDown={onClose}
     >
       <div
         onMouseDown={(e) => e.stopPropagation()}
         className={cn(
-          // Base styles
-          "bg-background border border-border shadow-2xl",
-          "rounded-2xl overflow-hidden",
-          // Compact sizing
-          "w-full max-w-[340px]",
+          // Base styles with glass effect
+          "bg-card/95 backdrop-blur-xl border border-border/50",
+          "rounded-3xl overflow-hidden",
+          // Shadows for depth
+          "shadow-[0_8px_32px_rgba(0,0,0,0.12)] dark:shadow-[0_8px_32px_rgba(0,0,0,0.4)]",
+          // Compact sizing for minimal look
+          "w-full max-w-[320px] sm:max-w-[340px]",
+          "mx-auto",
           // Animation
-          "animate-in zoom-in-95 duration-200",
+          "animate-in zoom-in-95 slide-in-from-bottom-4 duration-300",
         )}
       >
-        {/* Header - More compact */}
-        <div className="px-6 pt-6 pb-4 space-y-1.5">
+        {/* Header */}
+        <div className="px-6 pt-6 pb-1 space-y-1.5">
           <h2
             id="pin-dialog-title"
-            className="text-lg font-semibold tracking-tight"
+            className="text-lg font-semibold tracking-tight text-foreground"
           >
             {title}
           </h2>
           <p
             id="pin-dialog-description"
-            className="text-sm text-muted-foreground"
+            className="text-sm text-muted-foreground leading-relaxed"
           >
             {description}
           </p>
@@ -172,8 +183,11 @@ export default function PinDialog({
         {/* Body - Form */}
         <form onSubmit={handleSubmit} className="px-6 pb-6 space-y-4">
           {/* PIN Input */}
-          <div className="space-y-2">
-            <label htmlFor="pin-input" className="text-sm font-medium">
+          <div className="space-y-2 pt-3">
+            <label
+              htmlFor="pin-input"
+              className="text-xs font-medium text-muted-foreground uppercase tracking-wide"
+            >
               Enter PIN
             </label>
             <input
@@ -193,19 +207,20 @@ export default function PinDialog({
               placeholder="••••"
               autoComplete="off"
               className={cn(
-                "w-full h-12 px-4 text-center text-2xl tracking-[0.5em]",
-                "bg-muted/50 border border-border rounded-xl",
-                "focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent",
+                "w-full h-12 px-4 text-center text-xl tracking-[0.5em]",
+                "bg-background/60 border border-border rounded-xl",
+                "focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary/40",
+                "hover:border-border/80 transition-all duration-200",
                 "disabled:opacity-50 disabled:cursor-not-allowed",
-                "transition-all duration-200",
-                error && "border-destructive focus:ring-destructive",
+                error &&
+                  "border-destructive/50 focus:ring-destructive/40 focus:border-destructive/40",
               )}
             />
           </div>
 
           {/* Error Message */}
           {error && (
-            <div className="flex items-start gap-2 p-3 rounded-lg bg-destructive/10 border border-destructive/20 animate-in slide-in-from-top-2 duration-200">
+            <div className="flex items-start gap-2 p-3 rounded-xl bg-destructive/10 border border-destructive/20 animate-in slide-in-from-top-2 duration-200">
               <svg
                 className="h-4 w-4 text-destructive mt-0.5 flex-shrink-0"
                 fill="none"
@@ -232,16 +247,16 @@ export default function PinDialog({
           )}
 
           {/* Action Buttons */}
-          <div className="flex gap-2 pt-2">
+          <div className="flex gap-2.5 pt-2">
             <button
               type="button"
               onClick={onClose}
               disabled={loading}
               className={cn(
-                "flex-1 h-10 px-4 rounded-lg",
-                "bg-muted hover:bg-muted/80",
+                "flex-1 h-10 px-4 rounded-xl",
+                "bg-muted/80 hover:bg-muted text-foreground",
                 "text-sm font-medium",
-                "transition-colors duration-200",
+                "transition-all duration-200",
                 "disabled:opacity-50 disabled:cursor-not-allowed",
               )}
             >
@@ -251,11 +266,11 @@ export default function PinDialog({
               type="submit"
               disabled={loading || pin.length < minLength}
               className={cn(
-                "flex-1 h-10 px-4 rounded-lg",
+                "flex-1 h-10 px-4 rounded-xl",
                 "bg-primary hover:bg-primary/90 text-primary-foreground",
                 "text-sm font-medium",
                 "transition-all duration-200",
-                "disabled:opacity-50 disabled:cursor-not-allowed",
+                "disabled:opacity-40 disabled:cursor-not-allowed",
                 loading && "cursor-wait",
               )}
             >
@@ -291,6 +306,9 @@ export default function PinDialog({
       </div>
     </div>
   );
+
+  // Render dialog at document.body level to ensure it's always centered on full screen
+  return createPortal(dialogContent, document.body);
 }
 
 // Re-export for backward compatibility with existing imports

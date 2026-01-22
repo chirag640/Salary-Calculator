@@ -5,6 +5,7 @@ import { comparePassword, generateToken } from "@/lib/auth";
 import { sanitizeEmail, isValidEmail } from "@/lib/validation/auth";
 import { rateLimit, buildRateLimitKey } from "@/lib/rate-limit";
 import { handleCors, handleOptions } from "@/lib/cors";
+import { logger } from "@/lib/logger";
 
 export async function OPTIONS() {
   return handleOptions();
@@ -19,8 +20,8 @@ export async function POST(request: NextRequest) {
       return handleCors(
         NextResponse.json(
           { error: "Email and password are required" },
-          { status: 400 }
-        )
+          { status: 400 },
+        ),
       );
     }
 
@@ -29,7 +30,7 @@ export async function POST(request: NextRequest) {
     // Validate email format
     if (!isValidEmail(sanitizedEmail)) {
       return handleCors(
-        NextResponse.json({ error: "Invalid email format" }, { status: 400 })
+        NextResponse.json({ error: "Invalid email format" }, { status: 400 }),
       );
     }
 
@@ -52,8 +53,8 @@ export async function POST(request: NextRequest) {
               "Too many login attempts. Please try again later or use the 'Forgot Password' option.",
             retryAfter: rateLimitResult.retryAfter,
           },
-          { status: 429 }
-        )
+          { status: 429 },
+        ),
       );
     }
 
@@ -67,8 +68,8 @@ export async function POST(request: NextRequest) {
       return handleCors(
         NextResponse.json(
           { error: "Invalid email or password" },
-          { status: 401 }
-        )
+          { status: 401 },
+        ),
       );
     }
 
@@ -80,8 +81,8 @@ export async function POST(request: NextRequest) {
             error:
               "This account uses social login. Please sign in with Google or use 'Sign in with Email' to receive a login code.",
           },
-          { status: 401 }
-        )
+          { status: 401 },
+        ),
       );
     }
 
@@ -90,8 +91,8 @@ export async function POST(request: NextRequest) {
       return handleCors(
         NextResponse.json(
           { error: "Invalid email or password" },
-          { status: 401 }
-        )
+          { status: 401 },
+        ),
       );
     }
 
@@ -131,9 +132,9 @@ export async function POST(request: NextRequest) {
 
     return handleCors(response);
   } catch (error) {
-    console.error("Login error:", error);
+    logger.error("Login error", error instanceof Error ? error : { error });
     return handleCors(
-      NextResponse.json({ error: "Internal server error" }, { status: 500 })
+      NextResponse.json({ error: "Internal server error" }, { status: 500 }),
     );
   }
 }

@@ -2,6 +2,7 @@ import { type NextRequest, NextResponse } from "next/server";
 import { connectToDatabase } from "@/lib/mongodb";
 import { verifyToken, hashPin, comparePin } from "@/lib/auth";
 import { validateCsrf } from "@/lib/csrf";
+import { logger } from "@/lib/logger";
 
 export const runtime = "nodejs";
 
@@ -16,27 +17,23 @@ export async function POST(request: NextRequest) {
     if (!validateCsrf(request)) {
       return NextResponse.json(
         { error: "Invalid CSRF token" },
-        { status: 403 }
+        { status: 403 },
       );
     }
 
     const body = await request.json();
     const { currentPin, newPin } = body || {};
 
-    console.log(
-      "[PIN API] Received newPin:",
-      newPin,
-      "length:",
-      newPin?.length,
-      "type:",
-      typeof newPin
-    );
+    logger.debug("PIN API received newPin", {
+      length: newPin?.length,
+      type: typeof newPin,
+    });
 
     if (!newPin || typeof newPin !== "string" || newPin.length < 4) {
-      console.log("[PIN API] Validation failed - newPin invalid");
+      logger.debug("PIN API validation failed - newPin invalid");
       return NextResponse.json(
         { error: "New PIN must be at least 4 digits" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -52,13 +49,13 @@ export async function POST(request: NextRequest) {
       if (!currentPin)
         return NextResponse.json(
           { error: "Current PIN required" },
-          { status: 400 }
+          { status: 400 },
         );
       const ok = await comparePin(currentPin, user.pinHash);
       if (!ok)
         return NextResponse.json(
           { error: "Current PIN incorrect" },
-          { status: 401 }
+          { status: 401 },
         );
     }
 
@@ -67,7 +64,7 @@ export async function POST(request: NextRequest) {
       .collection("users")
       .updateOne(
         { _id: user._id },
-        { $set: { pinHash: hashed, pinFailedAttempts: 0, pinLockUntil: null } }
+        { $set: { pinHash: hashed, pinFailedAttempts: 0, pinLockUntil: null } },
       );
 
     // Regenerate auth token with pinSetup flag set to true
@@ -95,10 +92,13 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ success: true });
   } catch (e) {
-    console.error("POST /api/profile/pin error", e);
+    logger.error(
+      "POST /api/profile/pin error",
+      e instanceof Error ? e : { error: e },
+    );
     return NextResponse.json(
       { error: "Internal server error" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
@@ -115,7 +115,7 @@ export async function DELETE(request: NextRequest) {
     if (!validateCsrf(request)) {
       return NextResponse.json(
         { error: "Invalid CSRF token" },
-        { status: 403 }
+        { status: 403 },
       );
     }
 
@@ -130,14 +130,17 @@ export async function DELETE(request: NextRequest) {
       .collection("users")
       .updateOne(
         { _id: user._id },
-        { $unset: { pinHash: "", pinFailedAttempts: "", pinLockUntil: "" } }
+        { $unset: { pinHash: "", pinFailedAttempts: "", pinLockUntil: "" } },
       );
     return NextResponse.json({ success: true });
   } catch (e) {
-    console.error("DELETE /api/profile/pin error", e);
+    logger.error(
+      "DELETE /api/profile/pin error",
+      e instanceof Error ? e : { error: e },
+    );
     return NextResponse.json(
       { error: "Internal server error" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

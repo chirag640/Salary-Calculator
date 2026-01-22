@@ -2,6 +2,7 @@ import { type NextRequest, NextResponse } from "next/server";
 export const runtime = "nodejs";
 import { connectToDatabase } from "@/lib/mongodb";
 import { generateToken } from "@/lib/auth";
+import { logger } from "@/lib/logger";
 import {
   verifyOTP,
   isOTPExpired,
@@ -20,7 +21,7 @@ export async function POST(request: NextRequest) {
     if (!email || !otp) {
       return NextResponse.json(
         { error: "Email and OTP are required" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -30,7 +31,7 @@ export async function POST(request: NextRequest) {
     if (!isValidOTPFormat(otp)) {
       return NextResponse.json(
         { error: "Invalid OTP format" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -41,7 +42,7 @@ export async function POST(request: NextRequest) {
       "unknown";
     const rateLimitKey = buildRateLimitKey(
       ip,
-      `verify-login-otp:${sanitizedEmail}`
+      `verify-login-otp:${sanitizedEmail}`,
     );
     const rateLimitResult = rateLimit(rateLimitKey, {
       windowMs: 15 * 60 * 1000,
@@ -54,7 +55,7 @@ export async function POST(request: NextRequest) {
           error: "Too many verification attempts. Please try again later.",
           retryAfter: rateLimitResult.retryAfter,
         },
-        { status: 429 }
+        { status: 429 },
       );
     }
 
@@ -70,7 +71,7 @@ export async function POST(request: NextRequest) {
     if (!otpRecord) {
       return NextResponse.json(
         { error: "Invalid or expired login code" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -79,7 +80,7 @@ export async function POST(request: NextRequest) {
       await db.collection("auth_otps").deleteOne({ _id: otpRecord._id });
       return NextResponse.json(
         { error: "Login code has expired. Please request a new one." },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -88,7 +89,7 @@ export async function POST(request: NextRequest) {
       await db.collection("auth_otps").deleteOne({ _id: otpRecord._id });
       return NextResponse.json(
         { error: "Too many failed attempts. Please request a new login code." },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -108,7 +109,7 @@ export async function POST(request: NextRequest) {
           error: "Invalid login code",
           remainingAttempts: Math.max(0, remainingAttempts),
         },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -126,7 +127,7 @@ export async function POST(request: NextRequest) {
       .collection("auth_otps")
       .updateOne(
         { _id: otpRecord._id },
-        { $set: { used: true, usedAt: new Date() } }
+        { $set: { used: true, usedAt: new Date() } },
       );
 
     // Generate JWT token
@@ -167,10 +168,13 @@ export async function POST(request: NextRequest) {
 
     return response;
   } catch (error) {
-    console.error("Login OTP verification error:", error);
+    logger.error(
+      "Login OTP verification error",
+      error instanceof Error ? error : { error },
+    );
     return NextResponse.json(
       { error: "Internal server error" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

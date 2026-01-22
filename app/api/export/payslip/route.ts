@@ -3,6 +3,7 @@ import { connectToDatabase } from "@/lib/mongodb";
 import { verifyToken, verifyRevealToken } from "@/lib/auth";
 import { validateCsrf } from "@/lib/csrf";
 import { ObjectId } from "mongodb";
+import { logger } from "@/lib/logger";
 import type {
   TimeEntry,
   PaymentConfig,
@@ -16,7 +17,7 @@ import {
   createMonthlyCycle,
   getCurrentSalaryCycle,
   getLastNCycles,
-} from "@/lib/payment-calculator";
+} from "@/lib/payment";
 
 export const runtime = "nodejs";
 
@@ -214,7 +215,10 @@ export async function POST(request: NextRequest) {
       entriesCount: entries.length,
     });
   } catch (error) {
-    console.error("POST /api/export/payslip error:", error);
+    logger.error(
+      "POST /api/export/payslip error",
+      error instanceof Error ? error : { error },
+    );
     return NextResponse.json(
       { error: "Failed to generate payslip" },
       { status: 500 },
@@ -281,7 +285,10 @@ export async function GET(request: NextRequest) {
       cycleStartDay,
     });
   } catch (error) {
-    console.error("GET /api/export/payslip error:", error);
+    logger.error(
+      "GET /api/export/payslip error",
+      error instanceof Error ? error : { error },
+    );
     return NextResponse.json(
       { error: "Failed to fetch pay periods" },
       { status: 500 },

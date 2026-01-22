@@ -9,6 +9,7 @@ import type {
 import { validateCsrf } from "@/lib/csrf";
 import { rateLimit, buildRateLimitKey } from "@/lib/rate-limit";
 import { encryptNumber } from "@/lib/encryption";
+import { logger } from "@/lib/logger";
 
 export const runtime = "nodejs";
 
@@ -23,7 +24,7 @@ export async function POST(request: NextRequest) {
     if (!validateCsrf(request))
       return NextResponse.json(
         { error: "Invalid CSRF token" },
-        { status: 403 }
+        { status: 403 },
       );
     const ip =
       request.headers.get("x-forwarded-for")?.split(",")[0] || "unknown";
@@ -34,7 +35,7 @@ export async function POST(request: NextRequest) {
     if (!rl.ok)
       return NextResponse.json(
         { error: "Rate limit exceeded" },
-        { status: 429 }
+        { status: 429 },
       );
 
     const body: AddSalaryIncrementRequest = await request.json();
@@ -100,10 +101,13 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ success: true });
   } catch (e) {
-    console.error("POST /api/profile/increment error", e);
+    logger.error(
+      "POST /api/profile/increment error",
+      e instanceof Error ? e : { error: e },
+    );
     return NextResponse.json(
       { error: "Failed to add salary increment" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

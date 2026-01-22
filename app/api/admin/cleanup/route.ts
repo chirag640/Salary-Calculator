@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server";
 export const runtime = "nodejs";
 import { connectToDatabase } from "@/lib/mongodb";
+import { logger } from "@/lib/logger";
 
 /**
  * Admin endpoint to clean up test users and pending OTPs
@@ -46,10 +47,10 @@ export async function POST(request: NextRequest) {
       },
     });
   } catch (error) {
-    console.error("Cleanup error:", error);
+    logger.error("Cleanup error", error instanceof Error ? error : { error });
     return NextResponse.json(
       { error: "Internal server error" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

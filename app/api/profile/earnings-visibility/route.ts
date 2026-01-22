@@ -4,6 +4,7 @@ import { verifyToken } from "@/lib/auth";
 import { validateCsrf } from "@/lib/csrf";
 import { rateLimit, buildRateLimitKey } from "@/lib/rate-limit";
 import { ObjectId } from "mongodb";
+import { logger } from "@/lib/logger";
 
 export const runtime = "nodejs";
 
@@ -19,7 +20,9 @@ export async function GET(request: NextRequest) {
     }
 
     const { db } = await connectToDatabase();
-    const user = await db.collection("users").findOne({ _id: new ObjectId(userId) });
+    const user = await db
+      .collection("users")
+      .findOne({ _id: new ObjectId(userId) });
 
     if (!user) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
@@ -29,10 +32,13 @@ export async function GET(request: NextRequest) {
       showEarnings: user.showEarnings ?? false, // Default to false for privacy
     });
   } catch (error) {
-    console.error("Error fetching earnings visibility:", error);
+    logger.error(
+      "Error fetching earnings visibility",
+      error instanceof Error ? error : { error },
+    );
     return NextResponse.json(
       { error: "Failed to fetch earnings visibility" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
@@ -49,7 +55,10 @@ export async function PUT(request: NextRequest) {
     }
 
     if (!validateCsrf(request)) {
-      return NextResponse.json({ error: "Invalid CSRF token" }, { status: 403 });
+      return NextResponse.json(
+        { error: "Invalid CSRF token" },
+        { status: 403 },
+      );
     }
 
     // Rate limiting
@@ -62,7 +71,7 @@ export async function PUT(request: NextRequest) {
     if (!rl.ok) {
       return NextResponse.json(
         { error: "Rate limit exceeded" },
-        { status: 429 }
+        { status: 429 },
       );
     }
 
@@ -72,7 +81,7 @@ export async function PUT(request: NextRequest) {
     if (typeof showEarnings !== "boolean") {
       return NextResponse.json(
         { error: "showEarnings must be a boolean" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -84,7 +93,7 @@ export async function PUT(request: NextRequest) {
           showEarnings,
           updatedAt: new Date(),
         },
-      }
+      },
     );
 
     return NextResponse.json({
@@ -94,10 +103,13 @@ export async function PUT(request: NextRequest) {
         : "Earnings are now hidden",
     });
   } catch (error) {
-    console.error("Error updating earnings visibility:", error);
+    logger.error(
+      "Error updating earnings visibility",
+      error instanceof Error ? error : { error },
+    );
     return NextResponse.json(
       { error: "Failed to update earnings visibility" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

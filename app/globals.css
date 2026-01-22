@@ -1,5 +1,5 @@
-@import 'tailwindcss';
-@import 'tw-animate-css';
+@import "tailwindcss";
+@import "tw-animate-css";
 
 @custom-variant dark (&:is(.dark *));
 
@@ -130,25 +130,41 @@
   .bg-aurora {
     background-color: color-mix(in oklab, var(--background) 85%, transparent);
     background-image:
-      radial-gradient(1200px 600px at 10% -10%, color-mix(in oklab, oklch(0.92 0.06 220) 35%, transparent), transparent 60%),
-      radial-gradient(1000px 500px at 110% 10%, color-mix(in oklab, oklch(0.95 0.07 150) 30%, transparent), transparent 55%),
-      radial-gradient(800px 400px at 50% 120%, color-mix(in oklab, oklch(0.92 0.08 320) 25%, transparent), transparent 60%);
+      radial-gradient(
+        1200px 600px at 10% -10%,
+        color-mix(in oklab, oklch(0.92 0.06 220) 35%, transparent),
+        transparent 60%
+      ),
+      radial-gradient(
+        1000px 500px at 110% 10%,
+        color-mix(in oklab, oklch(0.95 0.07 150) 30%, transparent),
+        transparent 55%
+      ),
+      radial-gradient(
+        800px 400px at 50% 120%,
+        color-mix(in oklab, oklch(0.92 0.08 320) 25%, transparent),
+        transparent 60%
+      );
   }
 
   /* Reusable glass surfaces */
   .glass-card {
     @apply rounded-2xl border shadow-sm transition-all duration-300;
-    background: color-mix(in oklab, var(--color-card) 70%, transparent);
+    background: color-mix(in oklab, var(--color-card) 85%, transparent);
     /* fallback for light/dark */
-    background-color: color-mix(in oklab, oklch(1 0 0) 40%, transparent);
-    border-color: color-mix(in oklab, oklch(0.98 0 0) 35%, transparent);
-    backdrop-filter: blur(16px);
-    -webkit-backdrop-filter: blur(16px);
-    box-shadow: 0 1px 0 color-mix(in oklab, #000 6%, transparent), 0 8px 24px color-mix(in oklab, #000 8%, transparent);
+    background-color: color-mix(in oklab, oklch(1 0 0) 60%, transparent);
+    border-color: color-mix(in oklab, oklch(0.98 0 0) 45%, transparent);
+    backdrop-filter: blur(24px) saturate(180%);
+    -webkit-backdrop-filter: blur(24px) saturate(180%);
+    box-shadow:
+      0 1px 0 color-mix(in oklab, #000 6%, transparent),
+      0 8px 24px color-mix(in oklab, #000 8%, transparent);
   }
   .glass-card:hover {
     transform: translateY(-1px);
-    box-shadow: 0 2px 0 color-mix(in oklab, #000 6%, transparent), 0 16px 32px color-mix(in oklab, #000 10%, transparent);
+    box-shadow:
+      0 2px 0 color-mix(in oklab, #000 6%, transparent),
+      0 16px 32px color-mix(in oklab, #000 10%, transparent);
   }
 
   .glass-input {
@@ -160,7 +176,8 @@
     -webkit-backdrop-filter: blur(10px);
   }
   .glass-input:focus-visible {
-    box-shadow: 0 0 0 3px color-mix(in oklab, var(--color-ring) 35%, transparent);
+    box-shadow: 0 0 0 3px
+      color-mix(in oklab, var(--color-ring) 35%, transparent);
     border-color: color-mix(in oklab, var(--color-ring) 55%, transparent);
   }
 
@@ -178,7 +195,8 @@
     transform: translateY(-0.5px);
   }
   .glass-button:focus-visible {
-    box-shadow: 0 0 0 3px color-mix(in oklab, var(--color-ring) 35%, transparent);
+    box-shadow: 0 0 0 3px
+      color-mix(in oklab, var(--color-ring) 35%, transparent);
   }
 
   .glass-tabs {
@@ -326,4 +344,3 @@ body {
     padding-right: env(safe-area-inset-right);
   }
 }
-

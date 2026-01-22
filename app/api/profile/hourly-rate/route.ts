@@ -4,6 +4,7 @@ import { verifyToken, verifyRevealToken } from "@/lib/auth";
 import { getEffectiveHourlyRateForDate } from "@/lib/salary";
 import { validateCsrf } from "@/lib/csrf";
 import { rateLimit, buildRateLimitKey } from "@/lib/rate-limit";
+import { logger } from "@/lib/logger";
 
 export const runtime = "nodejs";
 
@@ -25,13 +26,13 @@ export async function GET(request: NextRequest) {
     if (!rl.ok)
       return NextResponse.json(
         { error: "Rate limit exceeded" },
-        { status: 429 }
+        { status: 429 },
       );
     const date = searchParams.get("date");
     if (!date)
       return NextResponse.json(
         { error: "date is required (YYYY-MM-DD)" },
-        { status: 400 }
+        { status: 400 },
       );
 
     const { db } = await connectToDatabase();
@@ -46,10 +47,13 @@ export async function GET(request: NextRequest) {
       overtime: eff.overtime,
     });
   } catch (e) {
-    console.error("GET /api/profile/hourly-rate error", e);
+    logger.error(
+      "GET /api/profile/hourly-rate error",
+      e instanceof Error ? e : { error: e },
+    );
     return NextResponse.json(
       { error: "Failed to get hourly rate" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

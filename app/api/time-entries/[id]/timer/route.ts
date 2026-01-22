@@ -5,6 +5,7 @@ import { ObjectId } from "mongodb";
 import { getUserFromSession } from "@/lib/auth";
 import { validateCsrf } from "@/lib/csrf";
 import { rateLimit, buildRateLimitKey } from "@/lib/rate-limit";
+import { logger } from "@/lib/logger";
 
 export const runtime = "nodejs";
 
@@ -45,7 +46,7 @@ function calculateElapsedSeconds(timer: TimerState): number {
  */
 function detectIdleTime(
   timer: TimerState,
-  thresholdMinutes: number = 10
+  thresholdMinutes: number = 10,
 ): { isIdle: boolean; idleSeconds: number } {
   if (!timer.isRunning || !timer.lastHeartbeatAt) {
     return { isIdle: false, idleSeconds: 0 };
@@ -68,7 +69,7 @@ function detectIdleTime(
  */
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: { id: string } },
 ) {
   try {
     // In Next.js App Router, `params` may be a promise-like; await to access properties safely
@@ -84,7 +85,7 @@ export async function POST(
     if (!validateCsrf(request)) {
       return NextResponse.json(
         { error: "Invalid CSRF token" },
-        { status: 403 }
+        { status: 403 },
       );
     }
 
@@ -97,7 +98,7 @@ export async function POST(
     if (!rl.ok) {
       return NextResponse.json(
         { error: "Rate limit exceeded" },
-        { status: 429 }
+        { status: 429 },
       );
     }
 
@@ -121,7 +122,7 @@ export async function POST(
     if (!entry) {
       return NextResponse.json(
         { error: "Time entry not found" },
-        { status: 404 }
+        { status: 404 },
       );
     }
 
@@ -129,7 +130,7 @@ export async function POST(
     if (entry.deletedAt || entry.leave?.isLeave) {
       return NextResponse.json(
         { error: "Cannot operate timer on this entry" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -147,7 +148,7 @@ export async function POST(
     if (action !== "heartbeat" && action !== "start") {
       idleDetection = detectIdleTime(
         timer,
-        timer.idleThresholdMinutes || idleThresholdMinutes
+        timer.idleThresholdMinutes || idleThresholdMinutes,
       );
       if (idleDetection.isIdle) {
         // Return idle warning - client should confirm before proceeding
@@ -158,11 +159,11 @@ export async function POST(
               idleSeconds: idleDetection.idleSeconds,
               lastHeartbeat: timer.lastHeartbeatAt,
               message: `No activity detected for ${Math.floor(
-                idleDetection.idleSeconds / 60
+                idleDetection.idleSeconds / 60,
               )} minutes. Please confirm to continue or discard idle time.`,
             },
           },
-          { status: 409 }
+          { status: 409 },
         ); // Conflict status to indicate special handling needed
       }
     }
@@ -172,7 +173,7 @@ export async function POST(
         if (timer.isRunning) {
           return NextResponse.json(
             { error: "Timer already running" },
-            { status: 400 }
+            { status: 400 },
           );
         }
         timer = {
@@ -190,7 +191,7 @@ export async function POST(
         if (!timer.isRunning) {
           return NextResponse.json(
             { error: "Timer not running" },
-            { status: 400 }
+            { status: 400 },
           );
         }
         // Accumulate time up to this pause
@@ -203,13 +204,13 @@ export async function POST(
         if (timer.isRunning) {
           return NextResponse.json(
             { error: "Timer already running" },
-            { status: 400 }
+            { status: 400 },
           );
         }
         if (!timer.startedAt) {
           return NextResponse.json(
             { error: "Timer never started" },
-            { status: 400 }
+            { status: 400 },
           );
         }
         timer.isRunning = true;
@@ -221,7 +222,7 @@ export async function POST(
         if (!timer.startedAt) {
           return NextResponse.json(
             { error: "Timer never started" },
-            { status: 400 }
+            { status: 400 },
           );
         }
         // Final accumulation
@@ -254,7 +255,7 @@ export async function POST(
 
         await collection.updateOne(
           { _id: new ObjectId(id) as any, userId },
-          { $set: updateFields }
+          { $set: updateFields },
         );
 
         return NextResponse.json({
@@ -267,7 +268,7 @@ export async function POST(
         if (!timer.isRunning) {
           return NextResponse.json(
             { error: "Timer not running" },
-            { status: 400 }
+            { status: 400 },
           );
         }
         timer.lastHeartbeatAt = now;
@@ -285,7 +286,7 @@ export async function POST(
           timer,
           updatedAt: new Date(),
         },
-      }
+      },
     );
 
     return NextResponse.json({
@@ -294,10 +295,13 @@ export async function POST(
       elapsedSeconds: calculateElapsedSeconds(timer),
     });
   } catch (error) {
-    console.error("Error processing timer action:", error);
+    logger.error(
+      "Error processing timer action",
+      error instanceof Error ? error : { error },
+    );
     return NextResponse.json(
       { error: "Failed to process timer action" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
@@ -308,7 +312,7 @@ export async function POST(
  */
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: { id: string } },
 ) {
   try {
     const user = getUserFromSession(request);
@@ -332,7 +336,7 @@ export async function GET(
     if (!entry) {
       return NextResponse.json(
         { error: "Time entry not found" },
-        { status: 404 }
+        { status: 404 },
       );
     }
 
@@ -346,7 +350,7 @@ export async function GET(
     const elapsedSeconds = calculateElapsedSeconds(timer);
     const idleDetection = detectIdleTime(
       timer,
-      timer.idleThresholdMinutes || 10
+      timer.idleThresholdMinutes || 10,
     );
 
     return NextResponse.json({
@@ -356,10 +360,13 @@ export async function GET(
       idleDetection,
     });
   } catch (error) {
-    console.error("Error getting timer state:", error);
+    logger.error(
+      "Error getting timer state",
+      error instanceof Error ? error : { error },
+    );
     return NextResponse.json(
       { error: "Failed to get timer state" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

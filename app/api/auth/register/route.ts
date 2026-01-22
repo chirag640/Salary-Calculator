@@ -13,6 +13,7 @@ import {
 } from "@/lib/validation/auth";
 import { rateLimit, buildRateLimitKey } from "@/lib/rate-limit";
 import { handleCors, handleOptions } from "@/lib/cors";
+import { logger } from "@/lib/logger";
 
 // Handle OPTIONS for CORS
 export async function OPTIONS() {
@@ -28,7 +29,7 @@ export async function POST(request: NextRequest) {
     if (!name || !email || !password) {
       return NextResponse.json(
         { error: "Name, email, and password are required" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -40,7 +41,7 @@ export async function POST(request: NextRequest) {
     if (!isValidEmail(sanitizedEmail)) {
       return NextResponse.json(
         { error: "Invalid email format" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -51,7 +52,7 @@ export async function POST(request: NextRequest) {
           error:
             "Name must be 1-100 characters and contain only letters, spaces, hyphens, and apostrophes",
         },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -63,7 +64,7 @@ export async function POST(request: NextRequest) {
           error: "Password does not meet requirements",
           details: passwordValidation.errors,
         },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -84,7 +85,7 @@ export async function POST(request: NextRequest) {
           error: "Too many registration attempts. Please try again later.",
           retryAfter: rateLimitResult.retryAfter,
         },
-        { status: 429 }
+        { status: 429 },
       );
     }
 
@@ -101,7 +102,7 @@ export async function POST(request: NextRequest) {
           error:
             "An account with this email already exists. Please login instead.",
         },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -143,9 +144,12 @@ export async function POST(request: NextRequest) {
         expiryMinutes: OTP_CONFIG.EXPIRY_MINUTES,
       });
 
-      console.log(`✅ OTP sent to ${sanitizedEmail}: ${otp}`);
+      logger.info("OTP sent for registration", { email: sanitizedEmail });
     } catch (emailError) {
-      console.error("Failed to send OTP email:", emailError);
+      logger.error(
+        "Failed to send OTP email",
+        emailError instanceof Error ? emailError : { error: emailError },
+      );
       // Clean up OTP
       await db.collection("auth_otps").deleteOne({
         email: sanitizedEmail,
@@ -154,7 +158,7 @@ export async function POST(request: NextRequest) {
       });
       return NextResponse.json(
         { error: "Failed to send verification email. Please try again." },
-        { status: 500 }
+        { status: 500 },
       );
     }
 
@@ -169,10 +173,13 @@ export async function POST(request: NextRequest) {
 
     return handleCors(response);
   } catch (error) {
-    console.error("Registration error:", error);
+    logger.error(
+      "Registration error",
+      error instanceof Error ? error : { error },
+    );
     const response = NextResponse.json(
       { error: "Internal server error" },
-      { status: 500 }
+      { status: 500 },
     );
     return handleCors(response);
   }

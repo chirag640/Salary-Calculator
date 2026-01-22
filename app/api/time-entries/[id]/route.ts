@@ -12,6 +12,7 @@ import { getUserFromSession } from "@/lib/auth";
 import { updateTimeEntrySchema } from "@/lib/validation/schemas";
 import { validateCsrf } from "@/lib/csrf";
 import { rateLimit, buildRateLimitKey } from "@/lib/rate-limit";
+import { logger } from "@/lib/logger";
 function deriveHolidayCategory(date: string): "sunday" | "saturday" | "other" {
   try {
     const d = new Date(date + "T00:00:00");
@@ -24,7 +25,7 @@ function deriveHolidayCategory(date: string): "sunday" | "saturday" | "other" {
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: { id: string } },
 ) {
   try {
     // Await params to satisfy Next.js App Router requirements
@@ -40,7 +41,7 @@ export async function PUT(
     if (!validateCsrf(request)) {
       return NextResponse.json(
         { error: "Invalid CSRF token" },
-        { status: 403 }
+        { status: 403 },
       );
     }
 
@@ -53,7 +54,7 @@ export async function PUT(
     if (!rl.ok) {
       return NextResponse.json(
         { error: "Rate limit exceeded" },
-        { status: 429 }
+        { status: 429 },
       );
     }
 
@@ -62,7 +63,7 @@ export async function PUT(
     if (!parsed.success) {
       return NextResponse.json(
         { error: "Validation failed", issues: parsed.error.format() },
-        { status: 400 }
+        { status: 400 },
       );
     }
     const {
@@ -92,7 +93,7 @@ export async function PUT(
           const extra =
             Math.round(
               calculateTimeWorked(timeIn, timeOut, breakMinutes, hourlyRate)
-                .totalHours * 100
+                .totalHours * 100,
             ) / 100;
           totalHours = Math.round((baseHolidayHours + extra) * 100) / 100;
         } else {
@@ -105,7 +106,7 @@ export async function PUT(
             timeIn,
             timeOut,
             breakMinutes,
-            hourlyRate
+            hourlyRate,
           ).totalHours;
         } else if (typeof providedHours === "number" && providedHours > 0) {
           totalHours = Math.round(providedHours * 100) / 100;
@@ -113,7 +114,7 @@ export async function PUT(
         totalEarnings = computeEarningsWithOvertime(
           totalHours,
           hourlyRate,
-          eff.overtime
+          eff.overtime,
         );
       }
     }
@@ -143,22 +144,25 @@ export async function PUT(
 
     const result = await collection.updateOne(
       { _id: new ObjectId(id) as any, userId },
-      { $set: updateData }
+      { $set: updateData },
     );
 
     if (result.matchedCount === 0) {
       return NextResponse.json(
         { error: "Time entry not found" },
-        { status: 404 }
+        { status: 404 },
       );
     }
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error("Error updating time entry:", error);
+    logger.error(
+      "Error updating time entry",
+      error instanceof Error ? error : { error },
+    );
     return NextResponse.json(
       { error: "Failed to update time entry" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
@@ -166,7 +170,7 @@ export async function PUT(
 // Soft delete endpoint (marks deletedAt and returns a restore token good for 15s)
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: { id: string } },
 ) {
   try {
     // Await params to satisfy Next.js App Router requirements
@@ -182,7 +186,7 @@ export async function DELETE(
     if (!validateCsrf(request)) {
       return NextResponse.json(
         { error: "Invalid CSRF token" },
-        { status: 403 }
+        { status: 403 },
       );
     }
 
@@ -195,7 +199,7 @@ export async function DELETE(
     if (!rl.ok) {
       return NextResponse.json(
         { error: "Rate limit exceeded" },
-        { status: 429 }
+        { status: 429 },
       );
     }
 
@@ -209,7 +213,7 @@ export async function DELETE(
     if (!entry || entry.deletedAt) {
       return NextResponse.json(
         { error: "Time entry not found" },
-        { status: 404 }
+        { status: 404 },
       );
     }
 
@@ -221,22 +225,25 @@ export async function DELETE(
       try {
         await collection.deleteOne({ _id: entry._id, userId });
       } catch (e) {
-        console.error("Failed to hard delete entry", e);
+        logger.error(
+          "Failed to hard delete entry",
+          e instanceof Error ? e : { error: e },
+        );
         return NextResponse.json(
           { error: "Failed to delete time entry" },
-          { status: 500 }
+          { status: 500 },
         );
       }
     } else {
       const deletedAt = new Date();
       await collection.updateOne(
         { _id: entry._id, userId },
-        { $set: { deletedAt, updatedAt: new Date() } }
+        { $set: { deletedAt, updatedAt: new Date() } },
       );
     }
 
     const restoreToken = Buffer.from(
-      JSON.stringify({ id, ts: Date.now() })
+      JSON.stringify({ id, ts: Date.now() }),
     ).toString("base64");
     return NextResponse.json({
       success: true,
@@ -245,10 +252,13 @@ export async function DELETE(
       expiresInMs: 15_000,
     });
   } catch (error) {
-    console.error("Error soft deleting time entry:", error);
+    logger.error(
+      "Error soft deleting time entry",
+      error instanceof Error ? error : { error },
+    );
     return NextResponse.json(
       { error: "Failed to delete time entry" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
@@ -256,7 +266,7 @@ export async function DELETE(
 // Restore (undo) within a 15s window: POST with { restoreToken }
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: { id: string } },
 ) {
   try {
     // Await params to satisfy Next.js App Router requirements
@@ -272,7 +282,7 @@ export async function POST(
     if (!validateCsrf(request)) {
       return NextResponse.json(
         { error: "Invalid CSRF token" },
-        { status: 403 }
+        { status: 403 },
       );
     }
 
@@ -285,7 +295,7 @@ export async function POST(
     if (!rl.ok) {
       return NextResponse.json(
         { error: "Rate limit exceeded" },
-        { status: 429 }
+        { status: 429 },
       );
     }
 
@@ -293,13 +303,13 @@ export async function POST(
     if (!body?.restoreToken) {
       return NextResponse.json(
         { error: "Missing restoreToken" },
-        { status: 400 }
+        { status: 400 },
       );
     }
     let decoded: { id: string; ts: number };
     try {
       decoded = JSON.parse(
-        Buffer.from(body.restoreToken, "base64").toString("utf8")
+        Buffer.from(body.restoreToken, "base64").toString("utf8"),
       );
     } catch {
       return NextResponse.json({ error: "Invalid token" }, { status: 400 });
@@ -310,7 +320,7 @@ export async function POST(
     if (Date.now() - decoded.ts > 15_000) {
       return NextResponse.json(
         { error: "Restore window expired" },
-        { status: 410 }
+        { status: 410 },
       );
     }
 
@@ -323,20 +333,23 @@ export async function POST(
     if (!entry || !entry.deletedAt) {
       return NextResponse.json(
         { error: "Entry not found or not deleted" },
-        { status: 404 }
+        { status: 404 },
       );
     }
 
     await collection.updateOne(
       { _id: entry._id, userId },
-      { $set: { deletedAt: null, updatedAt: new Date() } }
+      { $set: { deletedAt: null, updatedAt: new Date() } },
     );
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error("Error restoring time entry:", error);
+    logger.error(
+      "Error restoring time entry",
+      error instanceof Error ? error : { error },
+    );
     return NextResponse.json(
       { error: "Failed to restore time entry" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

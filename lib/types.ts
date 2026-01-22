@@ -592,3 +592,81 @@ export function expandPaymentConfig(
     locale: compact.locale || DEFAULT_PAYMENT_CONFIG.locale,
   };
 }
+
+// ---- API Response Types ----
+
+/**
+ * Standardized API error response
+ */
+export interface ApiErrorResponse {
+  error: string;
+  code?: string;
+  message?: string;
+  details?: Array<{ field: string; message: string }> | Record<string, unknown>;
+  status?: number;
+}
+
+/**
+ * Standardized API success response
+ */
+export interface ApiSuccessResponse<T = unknown> {
+  data?: T;
+  message?: string;
+  meta?: {
+    page?: number;
+    limit?: number;
+    total?: number;
+    nextCursor?: string | null;
+  };
+}
+
+/**
+ * Paginated response wrapper
+ */
+export interface PaginatedResponse<T> {
+  items: T[];
+  nextCursor: string | null;
+  pageSize: number;
+  total?: number;
+}
+
+/**
+ * Error codes enum for client handling
+ */
+export const ApiErrorCodes = {
+  // Authentication errors (401)
+  UNAUTHORIZED: "unauthorized",
+  TOKEN_EXPIRED: "token_expired",
+  INVALID_TOKEN: "invalid_token",
+
+  // Authorization errors (403)
+  FORBIDDEN: "forbidden",
+  CSRF_INVALID: "csrf_invalid",
+  INSUFFICIENT_PERMISSIONS: "insufficient_permissions",
+
+  // Validation errors (400)
+  VALIDATION_FAILED: "validation_failed",
+  INVALID_INPUT: "invalid_input",
+  MISSING_FIELD: "missing_field",
+  INVALID_FORMAT: "invalid_format",
+
+  // Resource errors (404)
+  NOT_FOUND: "not_found",
+  USER_NOT_FOUND: "user_not_found",
+  ENTRY_NOT_FOUND: "entry_not_found",
+
+  // Conflict errors (409)
+  CONFLICT: "conflict",
+  ALREADY_EXISTS: "already_exists",
+  VERSION_CONFLICT: "version_conflict",
+
+  // Rate limiting (429)
+  RATE_LIMITED: "rate_limited",
+
+  // Server errors (500)
+  INTERNAL_ERROR: "internal_error",
+  DATABASE_ERROR: "database_error",
+  EXTERNAL_SERVICE_ERROR: "external_service_error",
+} as const;
+
+export type ApiErrorCode = (typeof ApiErrorCodes)[keyof typeof ApiErrorCodes];
