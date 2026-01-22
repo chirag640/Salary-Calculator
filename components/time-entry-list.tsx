@@ -11,6 +11,7 @@ import { Pencil, Trash2, Calendar, Clock, FileText } from "lucide-react";
 import { TimerControls } from "@/components/timer-controls";
 import { useToast } from "@/hooks/use-toast";
 import { generateEntryPDF, downloadPDF, getWhatsAppShareLink } from "@/lib/pdf-generator";
+import { generatePdfFileName, getDisplayName } from "@/lib/pdf-utils";
 
 interface TimeEntryListProps {
   entries: TimeEntry[];
@@ -44,11 +45,21 @@ export function TimeEntryList({
 
   const handleGeneratePDF = async (entry: TimeEntry) => {
     try {
-      // Get user name from profile or use default
-      const userName = "Chirag"; // You can fetch from profile API if needed
+      // Fetch user profile to get the name
+      let profileName = "";
+      try {
+        const profileRes = await fetch("/api/profile", { credentials: "same-origin" });
+        if (profileRes.ok) {
+          const profile = await profileRes.json();
+          profileName = profile.name || "";
+        }
+      } catch (e) {
+        console.warn("Could not fetch profile for PDF name:", e);
+      }
       
-      const pdfBlob = generateEntryPDF(entry, userName);
-      const filename = `${entry.date}-chirag.pdf`;
+      const displayName = getDisplayName(profileName);
+      const pdfBlob = generateEntryPDF(entry, displayName);
+      const filename = generatePdfFileName(entry.date, profileName);
       
       // Download PDF first
       downloadPDF(pdfBlob, filename);

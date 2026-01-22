@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useMemo, useState } from "react";
-import PinModal from "../pin-modal";
+import PinDialog from "../pin-dialog";
 
 type MaskedValueProps = {
   value: string | number;
@@ -104,7 +104,7 @@ export default function MaskedValue({
         )}
       </div>
 
-      <PinModal
+      <PinDialog
         open={isOpen}
         onClose={() => setIsOpen(false)}
         onSuccess={handleSuccess}

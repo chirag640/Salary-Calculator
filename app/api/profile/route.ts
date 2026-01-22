@@ -3,6 +3,7 @@ import { connectToDatabase } from "@/lib/mongodb";
 import { verifyToken, verifyRevealToken } from "@/lib/auth";
 import { validateCsrf } from "@/lib/csrf";
 import type { UpdateProfileRequest, ProfileResponse } from "@/lib/types";
+import { expandPaymentConfig, compactPaymentConfig } from "@/lib/types";
 import { safeDecrypt, encryptNumber } from "@/lib/encryption";
 import { decryptSalaryRecords } from "@/lib/db-encryption-middleware";
 
@@ -29,7 +30,7 @@ export async function GET(request: NextRequest) {
     // is valid and belongs to the same user.
     const revealCookie = request.cookies.get("reveal-token")?.value;
     const revealValid = revealCookie ? verifyRevealToken(revealCookie) : null;
-    const allowReveal = revealValid &&  revealValid.userId === userId;
+    const allowReveal = revealValid && revealValid.userId === userId;
 
     const { db } = await connectToDatabase();
     const user = await db
@@ -37,20 +38,37 @@ export async function GET(request: NextRequest) {
       .findOne({ _id: new (require("mongodb").ObjectId)(userId) });
     if (!user)
       return NextResponse.json({ error: "User not found" }, { status: 404 });
-    
+
     // Decrypt salary history (backward compatible with unencrypted data)
-    const decryptedSalaryHistory = user.salaryHistory 
+    const decryptedSalaryHistory = user.salaryHistory
       ? decryptSalaryRecords(user.salaryHistory)
       : [];
-    
+
     const salaryHistory = decryptedSalaryHistory.map((rec: any) => ({
       ...rec,
       // redact amount unless reveal allowed
       amount: allowReveal ? rec.amount : null,
     }));
 
+    // Compute current salary from the latest entry in salary history
+    let currentSalary:
+      | { amount: number; salaryType: "monthly" | "annual" }
+      | undefined;
+    if (decryptedSalaryHistory.length > 0) {
+      const sortedHistory = [...decryptedSalaryHistory].sort((a: any, b: any) =>
+        (a.effectiveFrom || "").localeCompare(b.effectiveFrom || ""),
+      );
+      const latest = sortedHistory[sortedHistory.length - 1];
+      if (latest && latest.amount != null) {
+        currentSalary = {
+          amount: latest.amount,
+          salaryType: latest.salaryType || "monthly",
+        };
+      }
+    }
+
     // Decrypt defaultHourlyRate (backward compatible)
-    const decryptedHourlyRate = user.defaultHourlyRate 
+    const decryptedHourlyRate = user.defaultHourlyRate
       ? safeDecrypt(user.defaultHourlyRate)
       : undefined;
 
@@ -61,7 +79,9 @@ export async function GET(request: NextRequest) {
       contact: user.contact,
       workingConfig: user.workingConfig,
       overtime: user.overtime,
+      paymentConfig: expandPaymentConfig(user.paymentConfig), // Expand to full config with defaults
       salaryHistory,
+      currentSalary, // Include current salary from latest history entry
       defaultHourlyRate:
         allowReveal && decryptedHourlyRate !== undefined
           ? decryptedHourlyRate
@@ -73,7 +93,7 @@ export async function GET(request: NextRequest) {
     console.error("GET /api/profile error", e);
     return NextResponse.json(
       { error: "Failed to fetch profile" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
@@ -99,15 +119,23 @@ export async function PUT(request: NextRequest) {
     if (!validateCsrf(request)) {
       return NextResponse.json(
         { error: "Invalid CSRF token" },
-        { status: 403 }
+        { status: 403 },
       );
     }
 
     const body: UpdateProfileRequest = await request.json();
     const update: any = { ...body, updatedAt: new Date() };
-    
+
+    // Compact paymentConfig before saving (removes defaults to save space)
+    if (body.paymentConfig) {
+      update.paymentConfig = compactPaymentConfig(body.paymentConfig);
+    }
+
     // Encrypt defaultHourlyRate if present
-    if (body.defaultHourlyRate !== undefined && body.defaultHourlyRate !== null) {
+    if (
+      body.defaultHourlyRate !== undefined &&
+      body.defaultHourlyRate !== null
+    ) {
       update.defaultHourlyRate = encryptNumber(body.defaultHourlyRate);
     }
 
@@ -116,7 +144,7 @@ export async function PUT(request: NextRequest) {
       .collection("users")
       .updateOne(
         { _id: new (require("mongodb").ObjectId)(userId) },
-        { $set: update }
+        { $set: update },
       );
 
     const response = NextResponse.json({ success: true });
@@ -151,7 +179,7 @@ export async function PUT(request: NextRequest) {
     console.error("PUT /api/profile error", e);
     return NextResponse.json(
       { error: "Failed to update profile" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

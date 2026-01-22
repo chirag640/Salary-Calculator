@@ -14,6 +14,7 @@ import { ToastAction } from "@/components/ui/toast";
 import { useCsrfToken } from "@/hooks/use-csrf";
 import { format, startOfWeek, endOfWeek } from "date-fns";
 import MaskedValue from "@/components/ui/masked-value";
+import PinDialog from "@/components/pin-dialog";
 
 export default function HistoryPage() {
   const [entries, setEntries] = useState<TimeEntry[]>([]);
@@ -22,8 +23,6 @@ export default function HistoryPage() {
   const [hasMore, setHasMore] = useState(true);
   const [showEarnings, setShowEarnings] = useState(false);
   const [showPinDialog, setShowPinDialog] = useState(false);
-  const [pin, setPin] = useState("");
-  const [pinError, setPinError] = useState("");
   const router = useRouter();
   const { toast } = useToast();
   const { csrfToken, ensureCsrfToken} = useCsrfToken();
@@ -135,63 +134,32 @@ export default function HistoryPage() {
     router.push(`/?date=${entry.date}`);
   };
 
-  const handlePinSubmit = async () => {
-    if (pin.length !== 4) {
-      setPinError("PIN must be 4 digits");
-      return;
-    }
-
+  const handlePinSuccess = async () => {
+    // PIN verified - now enable earnings visibility
     try {
-      const response = await fetch("/api/auth/pin/verify", {
-        method: "POST",
+      const token = csrfToken || (await ensureCsrfToken());
+      const earningsResponse = await fetch("/api/profile/earnings-visibility", {
+        method: "PUT",
         headers: {
           "Content-Type": "application/json",
+          ...(token ? { "x-csrf-token": token } : {}),
         },
         credentials: "same-origin",
-        body: JSON.stringify({ pin }),
+        body: JSON.stringify({ showEarnings: true }),
       });
 
-      const data = await response.json();
-
-      if (response.ok && data.success) {
-        // PIN verified - now enable earnings visibility
-        setShowPinDialog(false);
-        setPin("");
-        setPinError("");
-
-        try {
-          const token = csrfToken || (await ensureCsrfToken());
-          const earningsResponse = await fetch("/api/profile/earnings-visibility", {
-            method: "PUT",
-            headers: {
-              "Content-Type": "application/json",
-              ...(token ? { "x-csrf-token": token } : {}),
-            },
-            credentials: "same-origin",
-            body: JSON.stringify({ showEarnings: true }),
-          });
-
-          if (earningsResponse.ok) {
-            setShowEarnings(true);
-            toast({
-              title: "Earnings visible",
-              description: "PIN verified. Monetary values are now visible",
-            });
-          }
-        } catch (error) {
-          toast({
-            title: "Failed to update earnings visibility",
-            variant: "destructive",
-          });
-        }
-      } else {
-        // Wrong PIN
-        setPinError(data.message || "Incorrect PIN. Please try again.");
-        setPin("");
+      if (earningsResponse.ok) {
+        setShowEarnings(true);
+        toast({
+          title: "Earnings visible",
+          description: "PIN verified. Monetary values are now visible",
+        });
       }
     } catch (error) {
-      console.error("PIN verification error:", error);
-      setPinError("Failed to verify PIN. Please try again.");
+      toast({
+        title: "Failed to update earnings visibility",
+        variant: "destructive",
+      });
     }
   };
 
@@ -265,66 +233,14 @@ export default function HistoryPage() {
         </Button>
       </div>
 
-      {/* PIN Verification Dialog */}
-      {showPinDialog && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <Card className="w-full max-w-md mx-4">
-            <CardHeader>
-              <CardTitle>Enter PIN to Show Earnings</CardTitle>
-              <p className="text-sm text-muted-foreground">
-                For security, please enter your 4-digit PIN
-              </p>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div>
-                <Label htmlFor="pin-input">PIN</Label>
-                <Input
-                  id="pin-input"
-                  type="password"
-                  inputMode="numeric"
-                  maxLength={4}
-                  value={pin}
-                  onChange={(e) => {
-                    setPin(e.target.value.replace(/\D/g, ""));
-                    setPinError("");
-                  }}
-                  placeholder="Enter 4-digit PIN"
-                  className="text-2xl text-center tracking-widest"
-                  autoFocus
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" && pin.length === 4) {
-                      handlePinSubmit();
-                    }
-                  }}
-                />
-                {pinError && (
-                  <p className="text-sm text-destructive mt-2">{pinError}</p>
-                )}
-              </div>
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  className="flex-1"
-                  onClick={() => {
-                    setShowPinDialog(false);
-                    setPin("");
-                    setPinError("");
-                  }}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  className="flex-1"
-                  onClick={handlePinSubmit}
-                  disabled={pin.length !== 4}
-                >
-                  Verify PIN
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      )}
+      {/* PIN Dialog */}
+      <PinDialog
+        open={showPinDialog}
+        onClose={() => setShowPinDialog(false)}
+        onSuccess={handlePinSuccess}
+        title="Enter PIN to Show Earnings"
+        description="For security, please enter your PIN to view monetary values"
+      />
 
       {/* Quick Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
