@@ -44,7 +44,7 @@ export default function TimeTracker() {
   // Fetch entries
   const fetchEntries = async (
     date?: string,
-    opts?: { append?: boolean; showDeleted?: boolean }
+    opts?: { append?: boolean; showDeleted?: boolean },
   ) => {
     try {
       const params = new URLSearchParams();
@@ -58,8 +58,8 @@ export default function TimeTracker() {
         const list = Array.isArray(data.items)
           ? data.items
           : Array.isArray(data)
-          ? data
-          : [];
+            ? data
+            : [];
         // Normalize _id to a string to ensure edit/delete routes work reliably
         const normalized = list.map((e: any) => ({
           ...e,
@@ -75,7 +75,7 @@ export default function TimeTracker() {
         }
         // For working set (today calculations etc.) we keep full loaded subset in entries
         setEntries((prev) =>
-          opts?.append ? [...prev, ...normalized] : normalized
+          opts?.append ? [...prev, ...normalized] : normalized,
         );
         setNextCursor(data.nextCursor || null);
       }
@@ -168,7 +168,7 @@ export default function TimeTracker() {
           loadMore();
         }
       },
-      { rootMargin: "200px" }
+      { rootMargin: "200px" },
     );
     observer.observe(el);
     return () => observer.disconnect();
@@ -176,7 +176,7 @@ export default function TimeTracker() {
 
   // Handle form submission
   const handleSubmit = async (
-    entryData: Omit<TimeEntry, "_id" | "createdAt" | "updatedAt" | "userId">
+    entryData: Omit<TimeEntry, "_id" | "createdAt" | "updatedAt" | "userId">,
   ) => {
     try {
       if (editingEntry) {
@@ -199,15 +199,15 @@ export default function TimeTracker() {
             prev.map((e) =>
               e._id === optimisticId
                 ? ({ ...e, ...entryData, updatedAt: new Date() } as any)
-                : e
-            )
+                : e,
+            ),
           );
           setHistoryItems((h) =>
             h.map((e) =>
               e._id === optimisticId
                 ? ({ ...e, ...entryData, updatedAt: new Date() } as any)
-                : e
-            )
+                : e,
+            ),
           );
           setEditingEntry(null);
           toast({
@@ -267,8 +267,8 @@ export default function TimeTracker() {
               description: body?.details
                 ? JSON.stringify(body.details)
                 : body?.issues
-                ? JSON.stringify(body.issues)
-                : "Please review your input and try again.",
+                  ? JSON.stringify(body.issues)
+                  : "Please review your input and try again.",
               variant: "destructive",
             });
           }
@@ -369,11 +369,14 @@ export default function TimeTracker() {
       });
       // Fallback: if undo not clicked and restore token exists, after expiry ensure not re-added
       if (restoreToken && removedEntry) {
-        setTimeout(() => {
-          // If undo occurred we already restored
-          if (undo) return;
-          // Optionally could purge permanently later (cron job server-side). Client does nothing.
-        }, Math.min(expiresInMs || 15000, 30000));
+        setTimeout(
+          () => {
+            // If undo occurred we already restored
+            if (undo) return;
+            // Optionally could purge permanently later (cron job server-side). Client does nothing.
+          },
+          Math.min(expiresInMs || 15000, 30000),
+        );
       }
     } catch (error) {
       console.error("Error deleting entry:", error);
@@ -440,24 +443,24 @@ export default function TimeTracker() {
     return () =>
       window.removeEventListener(
         "navigate-to-date",
-        handleNavigateToDate as any
+        handleNavigateToDate as any,
       );
   }, [toast]);
 
   // Calculate totals for selected date
   const todayEntries = entries.filter(
-    (entry) => entry.date === selectedDateString
+    (entry) => entry.date === selectedDateString,
   );
   const todayTotalHours = todayEntries.reduce(
     (sum, entry) => sum + entry.totalHours,
-    0
+    0,
   );
   const todayTotalEarnings = todayEntries.reduce(
     (sum, entry) => sum + entry.totalEarnings,
-    0
+    0,
   );
   const todayLeaveCount = todayEntries.filter(
-    (entry) => entry.leave?.isLeave
+    (entry) => entry.leave?.isLeave,
   ).length;
 
   const isToday = selectedDateString === todayString;
@@ -502,13 +505,16 @@ export default function TimeTracker() {
   }, [entries]);
 
   // Get top project this week
-  const projectHours = weekEntries.reduce((acc, e) => {
-    const proj = e.project || "No Project";
-    acc[proj] = (acc[proj] || 0) + e.totalHours;
-    return acc;
-  }, {} as Record<string, number>);
+  const projectHours = weekEntries.reduce(
+    (acc, e) => {
+      const proj = e.project || "No Project";
+      acc[proj] = (acc[proj] || 0) + e.totalHours;
+      return acc;
+    },
+    {} as Record<string, number>,
+  );
   const topProject = Object.entries(projectHours).sort(
-    (a, b) => b[1] - a[1]
+    (a, b) => b[1] - a[1],
   )[0]?.[0];
 
   // Calculate total stats for achievements
@@ -516,7 +522,7 @@ export default function TimeTracker() {
   const totalEntries = entries.length;
 
   const [showManualEntry, setShowManualEntry] = useState(false);
-  
+
   // Timer/Manual toggle with localStorage persistence
   const [showTimerHero, setShowTimerHero] = useState(() => {
     if (typeof window !== "undefined") {
@@ -579,16 +585,6 @@ export default function TimeTracker() {
             </div>
           )}
 
-          {/* Stats Grid - Essential Stats Only */}
-          <StatsGrid
-            todayHours={todayTotalHours}
-            todayEarnings={todayTotalEarnings}
-            weekHours={weekHours}
-            weekEarnings={weekEarnings}
-            streak={streak}
-            topProject={topProject}
-          />
-
           {/* Date Navigation & Manual Entry */}
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
             <div className="flex flex-wrap items-center gap-2">
@@ -629,68 +625,70 @@ export default function TimeTracker() {
                 </Button>
               )}
 
-              {!todayEntries.some((e) => e.timer?.isRunning) && showTimerHero && (
-                <Button
-                  onClick={() => setShowManualEntry(!showManualEntry)}
-                  variant={showManualEntry ? "default" : "outline"}
-                  size="sm"
-                >
-                  <Plus className="mr-2 h-4 w-4" />
-                  {showManualEntry ? "Hide Form" : "Add Entry"}
-                </Button>
-              )}
+              {!todayEntries.some((e) => e.timer?.isRunning) &&
+                showTimerHero && (
+                  <Button
+                    onClick={() => setShowManualEntry(!showManualEntry)}
+                    variant={showManualEntry ? "default" : "outline"}
+                    size="sm"
+                  >
+                    <Plus className="mr-2 h-4 w-4" />
+                    {showManualEntry ? "Hide Form" : "Add Entry"}
+                  </Button>
+                )}
             </div>
           </div>
 
           {/* Manual Entry Form */}
-          {(showManualEntry || !showTimerHero) && !todayEntries.some((e) => e.timer?.isRunning) && (
-            <div className="animate-in fade-in slide-in-from-top-4 duration-300">
-              <Card>
-                <CardHeader>
-                  <CardTitle>
-                    {editingEntry ? "Edit Entry" : "Add Manual Entry"}
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  {!editingEntry ? (
-                    <TimeEntryForm
-                      selectedDate={selectedDateString}
-                      onSubmit={(data) => {
-                        handleSubmit(data);
-                        setShowManualEntry(false);
-                      }}
-                      initialData={undefined}
-                      isEditing={false}
-                    />
-                  ) : (
-                    <>
+          {(showManualEntry || !showTimerHero) &&
+            !todayEntries.some((e) => e.timer?.isRunning) && (
+              <div className="animate-in fade-in slide-in-from-top-4 duration-300">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>
+                      {editingEntry ? "Edit Entry" : "Add Manual Entry"}
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    {!editingEntry ? (
                       <TimeEntryForm
                         selectedDate={selectedDateString}
                         onSubmit={(data) => {
                           handleSubmit(data);
-                          setEditingEntry(null);
                           setShowManualEntry(false);
                         }}
-                        initialData={editingEntry}
-                        isEditing={true}
+                        initialData={undefined}
+                        isEditing={false}
                       />
-                      <div className="flex justify-center mt-4">
-                        <Button
-                          variant="outline"
-                          onClick={() => {
+                    ) : (
+                      <>
+                        <TimeEntryForm
+                          selectedDate={selectedDateString}
+                          onSubmit={(data) => {
+                            handleSubmit(data);
                             setEditingEntry(null);
                             setShowManualEntry(false);
                           }}
-                        >
-                          Cancel
-                        </Button>
-                      </div>
-                    </>
-                  )}
-                </CardContent>
-              </Card>
-            </div>
-          )}
+                          initialData={editingEntry}
+                          isEditing={true}
+                        />
+                        <div className="flex justify-center mt-4">
+                          <Button
+                            variant="outline"
+                            onClick={() => {
+                              setEditingEntry(null);
+                              setShowManualEntry(false);
+                            }}
+                          >
+                            Cancel
+                          </Button>
+                        </div>
+                      </>
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
+            )}
 
           {/* Entries List */}
           <div>
